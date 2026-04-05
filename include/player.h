@@ -21,3 +21,4 @@ struct player
     void Draw();
 
 };
+

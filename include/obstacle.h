@@ -30,4 +30,7 @@ struct obstacle{
     //methods
     void update();
     void Draw();
+
 };
+
+
