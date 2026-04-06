@@ -16,17 +16,18 @@ int main () {
     type_of_obstacle typeofobstacle = type_of_obstacle::tall_obstacle;
 
     InitWindow(screen_width, screen_height, "platformer: game of the century");
+    InitAudioDevice();
 
     SetTargetFPS(60);
 
-    obstacle the_first_obstacle(400, groundy - 100 , typeofobstacle, is_moving);
+    obstacle the_first_obstacle(400, groundy - 100, typeofobstacle, is_moving);
     player my_player(player_start_x, player_start_y);
 
     //main game loop
     while(WindowShouldClose() == false) {
 
         if(!gameover) {
-            my_player.update(groundy);
+            my_player.update(groundy - 100);
             the_first_obstacle.update();
         }
 

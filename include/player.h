@@ -4,6 +4,10 @@
 struct player
 {
     //player properties
+    Texture2D sprite;
+    Sound jump_sound;
+    Sound walking_sound;
+    float scale;
     float position_x;
     float position_y;
     float width;
