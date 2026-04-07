@@ -20,23 +20,41 @@ int main () {
 
     SetTargetFPS(60);
 
-    obstacle the_first_obstacle(400, groundy - 100, typeofobstacle, is_moving);
+    Texture2D gameover_image = LoadTexture("assets/images/gameover.png");
+    obstacle the_first_obstacle(800, groundy - 100, typeofobstacle, is_moving);
     player my_player(player_start_x, player_start_y);
+
 
     //main game loop
     while(WindowShouldClose() == false) {
 
-        if(!gameover) {
-            my_player.update(groundy - 100);
+        Rectangle player_hitbox = {my_player.position.x,my_player.position.y, my_player.width, my_player.height};
+        Rectangle obstacle_hitbox = {the_first_obstacle.position.x, the_first_obstacle.position.y,
+                                    the_first_obstacle.width, the_first_obstacle.height};
+
+        if(CheckCollisionRecs(player_hitbox, obstacle_hitbox)){
+            my_player.lives -= 1;
+            my_player.position.x = player_start_x;
+            my_player.position.y = player_start_y;
+
+            if(my_player.lives == 0){
+                gameover = true;
+            }
+        }    
+
+        if(!gameover){
+            my_player.update(groundy);    
             the_first_obstacle.update();
         }
 
-
         BeginDrawing();
         ClearBackground(BLACK);
-        my_player.Draw();
-        the_first_obstacle.Draw();
-
+        if(!gameover){
+            my_player.Draw();
+            the_first_obstacle.Draw();
+        } else {
+            DrawTexture(gameover_image, 0, 0, WHITE);
+        }
         EndDrawing();
     }
 

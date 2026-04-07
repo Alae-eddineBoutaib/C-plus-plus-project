@@ -8,9 +8,8 @@ struct player
     Sound jump_sound;
     Sound walking_sound;
     float scale;
-    float position_x;
-    float position_y;
     float width;
+    Vector2 position;
     float height;
     int lives;
 
@@ -21,6 +20,7 @@ struct player
     
     //methods
     player(float start_x, float start_y);
+    ~player();
     void update(float groundy);
     void Draw();
 

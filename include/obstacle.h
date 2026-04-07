@@ -15,8 +15,7 @@ struct obstacle{
     Texture2D enemy;
     Sound enemy_sound;
     float scale;
-    float position_x;
-    float position_y;
+    Vector2 position;
     float width;
     float height;
     type_of_obstacle the_type;
@@ -31,6 +30,7 @@ struct obstacle{
     obstacle(float x, float y, type_of_obstacle type, bool moving);
 
     //methods
+    ~obstacle();
     void update();
     void Draw();
 
