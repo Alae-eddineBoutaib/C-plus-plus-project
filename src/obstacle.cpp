@@ -1,19 +1,37 @@
 #include "../include/obstacle.h"  
 
 //Constructor logic
-obstacle::obstacle(float x, float y, type_of_obstacle type, bool moving){
+obstacle::obstacle(float x, float y, bool moving, Texture2D enemy1, Texture2D enemy2, Texture2D enemy3){
     scale = 0.5f;
-    enemy = LoadTexture("assets/images/retro enemy 2.png");
-    enemy_sound = LoadSound("assets/sounds/monster sound 2.mp3");
     position.x = x;
     position.y = y;
-    the_type = type;
     is_moving = moving;
-    width = enemy.width * scale;
-    height = enemy.height * scale;
+    enemy_1 = enemy1;
+    enemy_2 = enemy2;
+    enemy_3 = enemy3;
+
+    int random_type = GetRandomValue(0, 2);
+    the_type = (type_of_obstacle) random_type;
+
+    switch (the_type)
+    {
+    case ghost_obstacle:
+        width = enemy_1.width * scale;
+        height = enemy_1.height * scale;
+        break;
+    case skeleton_obstacle:
+        width = enemy_2.width * scale;
+        height = enemy_2.height * scale;
+        break;
+    case robot_obstacle:
+        width = enemy_3.width * scale;
+        height = enemy_3.height * scale;
+        break;
+    }
 
     direction = -1;
     start_x = position.x;
+    start_y = position.y;
     patrol_distance = 60;
     speed = 3.0f;
 
@@ -21,26 +39,57 @@ obstacle::obstacle(float x, float y, type_of_obstacle type, bool moving){
 
 //Destructor logic
 obstacle::~obstacle(){
-    UnloadTexture(enemy);
-    UnloadSound(enemy_sound);
+    UnloadTexture(enemy_1);
+    UnloadTexture(enemy_2);
+    UnloadTexture(enemy_3);
 }
 
 //Movement logic
 void obstacle::update(){
-    if(is_moving == true) {
-        position.x = position.x + (speed * direction);
-        PlaySound(enemy_sound);
-    }
-    float distance_traveled = start_x - position.x;
-    if(abs((int) distance_traveled) >= patrol_distance){
-        direction = direction * (-1);
-    }
-    if(!IsSoundPlaying(enemy_sound)){
-        PlaySound(enemy_sound);
-    }
+    float distance_traveled;
+    switch (the_type)
+    {
+        case ghost_obstacle:
+        {
+            if(is_moving == true) {
+                position.y = position.y + (speed * direction);
+            }
+            if(position.y <= start_y - patrol_distance){
+                direction = 1;
+            }
+            else if(position.y >= start_y + patrol_distance){
+                direction = -1;
+            }
+            break;
+        }
+        case skeleton_obstacle:
+        case robot_obstacle:
+            {
+                if(is_moving == true) {
+                    position.x = position.x + (speed * direction);
+                }
+                distance_traveled = start_x - position.x;
+                if(abs(distance_traveled) >= patrol_distance){
+                    direction = direction * (-1);
+                }
+                break;
+            }
+
+        }
 }
 
 //Drawing logic
 void obstacle::Draw(){
-    DrawTextureEx(enemy, position, 0.0f, scale, WHITE);
+    switch (the_type)
+    {
+    case ghost_obstacle:
+        DrawTextureEx(enemy_1, position, 0.0f, scale, WHITE);
+        break;
+    case skeleton_obstacle:
+        DrawTextureEx(enemy_2, position, 0.0f, scale, WHITE);
+        break;
+    case robot_obstacle:
+        DrawTextureEx(enemy_3, position, 0.0f, scale, WHITE);
+        break;
+    }
 }

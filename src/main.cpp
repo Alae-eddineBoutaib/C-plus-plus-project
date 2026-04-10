@@ -1,5 +1,6 @@
 #include "../include/player.h"
 #include "../include/obstacle.h"
+#include "../include/assets.h"
 
 using namespace std;
 
@@ -13,22 +14,23 @@ int main () {
     int player_start_x = 150;
     int player_start_y = 150;
     float groundy = screen_height - 100 ;
-    type_of_obstacle typeofobstacle = type_of_obstacle::tall_obstacle;
+    
 
     InitWindow(screen_width, screen_height, "platformer: game of the century");
     InitAudioDevice();
 
     SetTargetFPS(60);
 
+    assets_manager vault;
     Texture2D gameover_image = LoadTexture("assets/images/gameover.png");
-    obstacle the_first_obstacle(800, groundy - 100, typeofobstacle, is_moving);
+    obstacle the_first_obstacle(800, groundy - 100, is_moving, vault.ghost_sprite, vault.skeleton_sprite, vault.robot_sprite);
     player my_player(player_start_x, player_start_y);
 
 
     //main game loop
     while(WindowShouldClose() == false) {
 
-        Rectangle player_hitbox = {my_player.position.x,my_player.position.y, my_player.width, my_player.height};
+        Rectangle player_hitbox = {my_player.position.x,my_player.position.y, my_player.width , my_player.height};
         Rectangle obstacle_hitbox = {the_first_obstacle.position.x, the_first_obstacle.position.y,
                                     the_first_obstacle.width, the_first_obstacle.height};
 
