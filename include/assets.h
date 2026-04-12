@@ -1,12 +1,16 @@
 #include "raylib.h"
+#pragma once
+
 
 struct assets_manager
 {
     //textures
-    Texture2D player_sprite;
-    Texture2D ghost_sprite;
-    Texture2D skeleton_sprite;
-    Texture2D robot_sprite;
+    Texture2D player_sprite_idle;
+    Texture2D player_sprite_run;
+    Texture2D player_sprite_jump;
+    Texture2D enemy_1;
+    Texture2D enemy_2;
+    Texture2D enemy_3;
 
     // Sounds
     Sound player_walk;

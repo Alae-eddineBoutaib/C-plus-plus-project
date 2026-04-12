@@ -4,7 +4,7 @@
 
 using namespace std;
 
-enum type_of_obstacle { ghost_obstacle, skeleton_obstacle, robot_obstacle};
+enum type_of_obstacle {tree_monster, man, minion};
 
 
 struct obstacle{
@@ -17,6 +17,12 @@ struct obstacle{
     float width;
     float height;
     type_of_obstacle the_type;
+    Rectangle frame_rec;
+    int current_frame;
+    int frames_counter;
+    int frames_speed;
+    int max_frames;
+    int run_max_frames;
 
     //obstacle movement
     bool is_moving;
@@ -30,6 +36,7 @@ struct obstacle{
 
     //methods
     ~obstacle();
+    void update_animation();
     void update();
     void Draw();
 

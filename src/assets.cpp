@@ -1,20 +1,25 @@
-#pragma once
 #include "../include/assets.h"
 
 
 assets_manager::assets_manager() {
 
-    ghost_sprite = LoadTexture("assets/images/retro enemy 2.png");
-    skeleton_sprite = LoadTexture("assets/images/retro enemy 4.png");
-    robot_sprite = LoadTexture("assets/images/retro enemy 6.png");
+    player_sprite_idle = LoadTexture("assets/images/Swordsman/Idle.png");
+    player_sprite_run = LoadTexture("assets/images/Swordsman/Run.png");
+    player_sprite_jump = LoadTexture("assets/images/Swordsman/Jump.png");
+    enemy_1 =  LoadTexture("assets/images/enemy1/Walk.png");
+    enemy_2 = LoadTexture("assets/images/enemy2/Walk.png");
+    enemy_3 = LoadTexture("assets/images/enemy3/Walk.png");
+    player_jump = LoadSound("assets/sounds/jump.mp3");
+
     
 }
 
 assets_manager::~assets_manager() {
 
-    UnloadTexture(player_sprite);
-    UnloadTexture(ghost_sprite);
-    UnloadTexture(skeleton_sprite);
-    UnloadTexture(robot_sprite);
-    
+    UnloadTexture(player_sprite_idle);
+    UnloadTexture(player_sprite_run);
+    UnloadTexture(enemy_1);
+    UnloadTexture(enemy_2);
+    UnloadTexture(enemy_3);
+    UnloadSound(player_jump);
 }
