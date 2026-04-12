@@ -1,8 +1,6 @@
 #include "../include/assets.h"
 
-
 assets_manager::assets_manager() {
-
     player_sprite_idle = LoadTexture("assets/images/Swordsman/Idle.png");
     player_sprite_run = LoadTexture("assets/images/Swordsman/Run.png");
     player_sprite_jump = LoadTexture("assets/images/Swordsman/Jump.png");
@@ -14,7 +12,6 @@ assets_manager::assets_manager() {
 }
 
 assets_manager::~assets_manager() {
-
     UnloadTexture(player_sprite_idle);
     UnloadTexture(player_sprite_run);
     UnloadTexture(player_sprite_jump);

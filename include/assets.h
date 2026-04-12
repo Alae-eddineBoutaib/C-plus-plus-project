@@ -1,7 +1,6 @@
 #include "raylib.h"
 #pragma once
 
-
 struct assets_manager
 {
     //textures
@@ -22,4 +21,3 @@ struct assets_manager
     assets_manager();
     ~assets_manager();
 };
-

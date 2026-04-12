@@ -7,7 +7,6 @@
 using namespace std;
 
 enum ScreenState { MENU, STAGES, KEYBINDS, GAMEPLAY };
-
 int main () {
 
     cout << "starting the game"<<endl;
@@ -22,7 +21,6 @@ int main () {
     int player_start_y = 750;
     float groundy = screen_height - 100 ;
     ScreenState current_screen = MENU;
-    
 
     InitWindow(screen_width, screen_height, "platformer: game of the century");
     InitAudioDevice();
