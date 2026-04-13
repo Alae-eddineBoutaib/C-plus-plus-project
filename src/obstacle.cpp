@@ -2,9 +2,8 @@
 
 //Constructor logic
 obstacle::obstacle(float x, float y, bool moving, Texture2D enemy1, Texture2D enemy2, Texture2D enemy3){
-    scale = 0.5f;
+    scale = 1.0f;
     position.x = x;
-    position.y = y;
     is_moving = moving;
     enemy_1 = enemy1;
     enemy_2 = enemy2;
@@ -22,24 +21,22 @@ obstacle::obstacle(float x, float y, bool moving, Texture2D enemy1, Texture2D en
     switch (the_type)
     {
     case tree_monster:
-        width = frame_rec.width;
-        height = frame_rec.height;
         frame_rec.width = enemy_1.width / max_frames;
         frame_rec.height = enemy_1.height;
         break;
     case man:
-        width = frame_rec.width;
-        height = frame_rec.height;
         frame_rec.width = enemy_2.width / max_frames;
         frame_rec.height = enemy_2.height;
         break;
     case minion:
-        width = frame_rec.width;
-        height = frame_rec.height;
         frame_rec.width = enemy_3.width / max_frames;
         frame_rec.height = enemy_3.height;
         break;
     }
+
+    width = frame_rec.width * scale;
+    height = frame_rec.height * scale;
+    position.y = y - height + 10;
 
     direction = -1;
     start_x = position.x;
@@ -91,16 +88,26 @@ void obstacle::update(){
 
 //Drawing logic
 void obstacle::Draw(){
+    Texture2D Tex;
     switch (the_type)
     {
     case tree_monster:
-        DrawTextureRec(enemy_1, frame_rec, position, WHITE);
+        Tex = enemy_1;
         break;
     case man:
-        DrawTextureRec(enemy_2, frame_rec, position, WHITE);
+        Tex = enemy_2;
         break;
     case minion:
-        DrawTextureRec(enemy_3, frame_rec, position, WHITE);
+        Tex = enemy_3;
         break;
     }
+
+    Rectangle dest = {
+        position.x,
+        position.y,
+        frame_rec.width * scale,
+        frame_rec.height * scale
+    };
+
+    DrawTexturePro(Tex, frame_rec, dest, {0, 0}, 0.0f, WHITE);
 }

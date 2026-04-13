@@ -3,7 +3,7 @@
 
 //Constructor logic
 player::player(float start_x, float start_y, Texture2D mc_sprite_idle, Texture2D mc_sprite_run, Texture2D mc_sprite_jump,Sound jump_sound){
-    scale = 0.5f;
+    scale = 1.0f;
     position.x = start_x;
     position.y = start_y;
     sprite_idle = mc_sprite_idle;
@@ -18,8 +18,8 @@ player::player(float start_x, float start_y, Texture2D mc_sprite_idle, Texture2D
     frame_rec.x = 0;
     frame_rec.y = 0;
 
-    width = sprite_idle.width / max_frames;
-    height = sprite_idle.height;
+    width = (sprite_idle.width / max_frames) * scale;
+    height = sprite_idle.height * scale;
 
     lives = 3;    
     yspeed = 0;
@@ -58,7 +58,7 @@ void player::update(float groundy){
     }
     if(IsKeyPressed(KEY_SPACE) && position.y >= groundy - height) {
         game_state = jumping;
-        yspeed = -25;
+        yspeed = -20;
     }
     yspeed += gravity;
     position.y += yspeed;
@@ -72,11 +72,21 @@ void player::update(float groundy){
 
 //Drawing logic
 void player::Draw(){
+    Texture2D tex;
     if(game_state == idle){
-        DrawTextureRec(sprite_idle, frame_rec, position, WHITE);
+        tex = sprite_idle;
     }else if(game_state == running){
-        DrawTextureRec(sprite_run, frame_rec, position, WHITE);
+        tex = sprite_run;
     }else if(game_state == jumping){
-        DrawTextureRec(sprite_jump, frame_rec, position, WHITE);
+        tex = sprite_jump;
     }
+
+    Rectangle dest = {
+        position.x,
+        position.y,
+        frame_rec.width * scale,
+        frame_rec.height * scale
+    };
+
+    DrawTexturePro(tex, frame_rec, dest, {0, 0}, 0.0f, WHITE);
 }

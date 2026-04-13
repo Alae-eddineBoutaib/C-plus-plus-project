@@ -19,20 +19,29 @@ int main () {
     int selected_stage_option = 0;
     int player_start_x = 10;
     int player_start_y = 750;
-    float groundy = screen_height - 100 ;
+    float groundy = screen_height - 100;
     ScreenState current_screen = MENU;
 
     InitWindow(screen_width, screen_height, "platformer: game of the century");
     InitAudioDevice();
 
+    SetExitKey(0); 
+
     SetTargetFPS(60);
 
     {
         assets_manager vault;
-        obstacle the_first_obstacle(800, groundy - 50, is_moving, vault.enemy_1, vault.enemy_2, vault.enemy_3);
+        obstacle the_first_obstacle(800, groundy, is_moving, vault.enemy_1, vault.enemy_2, vault.enemy_3);
+        cout << "Obstacle height: " << the_first_obstacle.height << endl;
+        cout << "Obstacle y: " << the_first_obstacle.position.y << endl;
+        cout << "Ground y: " << groundy << endl;
         player my_player(player_start_x, player_start_y, vault.player_sprite_idle, vault.player_sprite_run, vault.player_sprite_jump, vault.player_jump);
         coin level_coin(420.0f, groundy - 80.0f, 18.0f, 1, vault.coin_pickup);
         UI game_ui(screen_width, screen_height);
+        Camera2D camera = {0};
+        camera.target = my_player.position;
+        camera.offset = {(float) screen_width / 2,(float) screen_height / 2};
+        camera.zoom = 1.0f;
 
         auto reset_game = [&]() {
             gameover = false;
@@ -113,6 +122,7 @@ int main () {
                     my_player.update(groundy);
                     the_first_obstacle.update();
                     level_coin.update();
+                    camera.target = my_player.position;
 
                     if(level_coin.collect(player_hitbox)){
                         collected_coins += level_coin.value;
@@ -136,10 +146,22 @@ int main () {
             } else if (current_screen == KEYBINDS) {
                 game_ui.draw_keybinds();
             } else if(!gameover){
+                BeginMode2D(camera);
+
                 DrawRectangle(0, (int)groundy, screen_width, screen_height - (int)groundy, Color{74, 117, 44, 255});
                 my_player.Draw();
                 the_first_obstacle.Draw();
                 level_coin.Draw();
+                //to be deleted
+                DrawRectangleLines(
+                    the_first_obstacle.position.x,
+                    the_first_obstacle.position.y,
+                    the_first_obstacle.width,
+                    the_first_obstacle.height,
+                    RED
+                );
+
+                EndMode2D();
                 game_ui.draw_hud(my_player.lives, collected_coins);
                 DrawText("ESC - Menu", screen_width - 170, 20, 24, RAYWHITE);
             } else {
