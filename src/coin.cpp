@@ -1,4 +1,4 @@
-#include "../include/coin.h"
+#include "../include/coin.hpp"
 
 #include <cmath>
 

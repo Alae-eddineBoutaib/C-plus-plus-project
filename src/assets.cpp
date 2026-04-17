@@ -1,4 +1,4 @@
-#include "../include/assets.h"
+#include "../include/assets.hpp"
 
 assets_manager::assets_manager() {
     player_sprite_idle = LoadTexture("assets/images/Swordsman/Idle.png");
@@ -7,8 +7,10 @@ assets_manager::assets_manager() {
     enemy_1 =  LoadTexture("assets/images/enemy1/Walk.png");
     enemy_2 = LoadTexture("assets/images/enemy2/Walk.png");
     enemy_3 = LoadTexture("assets/images/enemy3/Walk.png");
+    box = LoadTexture("assets/images/objects/box.png");
     player_jump = LoadSound("assets/sounds/jump.mp3");
     coin_pickup = LoadSound("assets/sounds/coin pick up.mp3");
+    
 }
 
 assets_manager::~assets_manager() {

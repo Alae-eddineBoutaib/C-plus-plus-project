@@ -1,3 +1,5 @@
+
+#pragma once
 #include <raylib.h>
 #include <iostream>
 
@@ -23,6 +25,8 @@ struct player
     int max_frames;
     int run_max_frames;
     enum state game_state;
+    int direction;
+    bool on_ground;
 
     //movements
     float horizontal_movement;

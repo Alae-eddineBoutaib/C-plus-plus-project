@@ -1,10 +1,11 @@
+#pragma once
 #include <iostream>
 #include <raylib.h>
 #include <cmath>
 
 using namespace std;
 
-enum type_of_obstacle {tree_monster, man, minion};
+enum type_of_obstacle {spike ,moving_pad, box, tree_monster, man, minion};
 
 
 struct obstacle{
@@ -12,6 +13,7 @@ struct obstacle{
     Texture2D enemy_1;
     Texture2D enemy_2;
     Texture2D enemy_3;
+    Texture2D the_box;
     float scale;
     Vector2 position;
     float width;
@@ -23,6 +25,7 @@ struct obstacle{
     int frames_speed;
     int max_frames;
     int run_max_frames;
+    bool is_harmful;
 
     //obstacle movement
     bool is_moving;
@@ -32,7 +35,7 @@ struct obstacle{
     float start_y;
     float patrol_distance;
     
-    obstacle(float x, float y, bool moving, Texture2D tex1, Texture2D tex2, Texture2D tex3);
+    obstacle(float x, float y, bool moving, type_of_obstacle type, Texture2D boxe, Texture2D tex1, Texture2D tex2, Texture2D tex3);
 
     //methods
     ~obstacle();
@@ -41,5 +44,3 @@ struct obstacle{
     void Draw();
 
 };
-
-

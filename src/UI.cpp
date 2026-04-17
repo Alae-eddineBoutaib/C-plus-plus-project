@@ -1,4 +1,4 @@
-#include "../include/UI.h"
+#include "../include/UI.hpp"
 
 UI::UI(int width, int height)
 {

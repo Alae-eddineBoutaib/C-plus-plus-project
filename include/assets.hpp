@@ -10,6 +10,7 @@ struct assets_manager
     Texture2D enemy_1;
     Texture2D enemy_2;
     Texture2D enemy_3;
+    Texture2D box;
 
     // Sounds
     Sound player_walk;

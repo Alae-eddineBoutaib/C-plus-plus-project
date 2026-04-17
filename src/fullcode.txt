@@ -1,0 +1,833 @@
+assets.cpp:
+<code>
+#include "../include/assets.hpp"
+
+assets_manager::assets_manager() {
+    player_sprite_idle = LoadTexture("assets/images/Swordsman/Idle.png");
+    player_sprite_run = LoadTexture("assets/images/Swordsman/Run.png");
+    player_sprite_jump = LoadTexture("assets/images/Swordsman/Jump.png");
+    enemy_1 =  LoadTexture("assets/images/enemy1/Walk.png");
+    enemy_2 = LoadTexture("assets/images/enemy2/Walk.png");
+    enemy_3 = LoadTexture("assets/images/enemy3/Walk.png");
+    box = LoadTexture("assets/images/objects/box.png");
+    player_jump = LoadSound("assets/sounds/jump.mp3");
+    coin_pickup = LoadSound("assets/sounds/coin pick up.mp3");
+    
+}
+
+assets_manager::~assets_manager() {
+    UnloadTexture(player_sprite_idle);
+    UnloadTexture(player_sprite_run);
+    UnloadTexture(player_sprite_jump);
+    UnloadTexture(enemy_1);
+    UnloadTexture(enemy_2);
+    UnloadTexture(enemy_3);
+    UnloadSound(player_jump);
+    UnloadSound(coin_pickup);
+}
+
+</code>
+
+coin.cpp:
+<code>
+#include "../include/coin.hpp"
+
+#include <cmath>
+
+coin::coin(float x, float y, float coin_radius, int coin_value, Sound coin_pickup_sound)
+{
+    position = {x, y};
+    radius = coin_radius;
+    base_y = y;
+    bob_offset = 0.0f;
+    bob_speed = 3.0f;
+    bob_amplitude = 8.0f;
+    value = coin_value;
+    collected = false;
+    pickup_sound = coin_pickup_sound;
+}
+
+void coin::update()
+{
+    if (collected)
+    {
+        return;
+    }
+
+    bob_offset += GetFrameTime() * bob_speed;
+    position.y = base_y + std::sin(bob_offset) * bob_amplitude;
+}
+
+void coin::Draw() const
+{
+    if (collected)
+    {
+        return;
+    }
+
+    DrawCircleV(position, radius, GOLD);
+    DrawCircleLines((int)position.x, (int)position.y, radius, ORANGE);
+    DrawCircleV(position, radius * 0.45f, Fade(YELLOW, 0.85f));
+    DrawRectangleRounded(
+        {position.x - radius * 0.12f, position.y - radius * 0.55f, radius * 0.24f, radius * 1.1f},
+        0.4f,
+        4,
+        Color{207, 140, 30, 255});
+}
+
+bool coin::collect(const Rectangle& target)
+{
+    if (collected)
+    {
+        return false;
+    }
+
+    if (CheckCollisionRecs(get_hitbox(), target))
+    {
+        collected = true;
+        if (pickup_sound.frameCount > 0)
+        {
+            PlaySound(pickup_sound);
+        }
+        return true;
+    }
+
+    return false;
+}
+
+void coin::reset(float x, float y)
+{
+    position = {x, y};
+    base_y = y;
+    bob_offset = 0.0f;
+    collected = false;
+}
+
+Rectangle coin::get_hitbox() const
+{
+    return {position.x - radius, position.y - radius, radius * 2.0f, radius * 2.0f};
+}
+
+</code>
+
+game.cpp:
+<code>
+#include "../include/game.hpp"
+#include "../include/levelmanager.hpp"
+
+//constructor logic
+Game::Game(int width, int height) {
+    screen_width = width;
+    screen_height = height;
+    should_exit = false;
+
+    gameover = false;
+    collected_coins = 0;
+
+    selected_menu_option = 0;
+    selected_stage_option = 0;
+
+    groundy = screen_height - 100;
+    current_screen = MENU;
+
+    my_player = new player(10, 750, vault.player_sprite_idle,
+                           vault.player_sprite_run,
+                           vault.player_sprite_jump,
+                           vault.player_jump);
+
+    lvl_manager = new levelmanager(vault, groundy);
+
+    game_ui = new UI(screen_width, screen_height);
+
+    camera.target = my_player->position;
+    camera.offset = {(float)screen_width / 2, (float)screen_height / 2};
+    camera.zoom = 1.0f;
+}
+
+//reset logic
+void Game::reset() {
+    gameover = false;
+    collected_coins = 0;
+
+    my_player->lives = 3;
+    my_player->position = {10, 750};
+
+    lvl_manager->reset_current_level();
+}
+
+//update logic
+void Game::update() {
+    if (current_screen == MENU) {
+        if (IsKeyPressed(KEY_DOWN))
+            selected_menu_option = (selected_menu_option + 1) % 4;
+
+        if (IsKeyPressed(KEY_UP))
+            selected_menu_option = (selected_menu_option + 3) % 4;
+
+        if (IsKeyPressed(KEY_ENTER)) {
+            if (selected_menu_option == 0) {
+                reset();
+                current_screen = GAMEPLAY;
+            } else if (selected_menu_option == 1) {
+                current_screen = STAGES;
+            } else if (selected_menu_option == 2) {
+                current_screen = KEYBINDS;
+            } else {
+                should_exit = true;
+            }
+        }
+    }
+    
+    else if (current_screen == STAGES) {
+        if (IsKeyPressed(KEY_DOWN))
+            selected_stage_option = (selected_stage_option + 1) % 3;
+
+        if (IsKeyPressed(KEY_UP))
+            selected_stage_option = (selected_stage_option + 2) % 3;
+
+        if (IsKeyPressed(KEY_ENTER)) {
+            if (selected_stage_option == 0) {
+                lvl_manager->current_level = 0; 
+                reset();
+                current_screen = GAMEPLAY;
+            } else if (selected_stage_option == 1) {
+                
+            } else if (selected_stage_option == 2) {
+                current_screen = MENU;
+            }
+        }
+
+        if (IsKeyPressed(KEY_ESCAPE)) {
+            current_screen = MENU;
+        }
+    }
+    
+    else if (current_screen == KEYBINDS) {
+        if (IsKeyPressed(KEY_ESCAPE)) {
+            current_screen = MENU;
+        }
+    }
+
+    else if (current_screen == GAMEPLAY) {
+        if (gameover) {
+            if (IsKeyPressed(KEY_R)) {
+                reset();
+            }
+            return;
+        }
+        Rectangle player_hitbox = {
+            my_player->position.x,
+            my_player->position.y,
+            my_player->width,
+            my_player->height
+        };
+
+        level* current_lvl = lvl_manager->get_current_level();
+
+        for(auto obs: current_lvl->obstacles){
+            Rectangle obstacle_hitbox = { obs->position.x, obs->position.y, obs->width, obs->height };
+            if (CheckCollisionRecs(player_hitbox, obstacle_hitbox)) {
+                if(obs->is_harmful){
+                    my_player->lives--;
+                    my_player->position = {10, 750};
+                    if (my_player->lives <= 0) gameover = true;
+                } else{
+                    if (my_player->yspeed > 0 && (my_player->position.y + my_player->height - my_player->yspeed) <= obs->position.y + 15) {
+                        my_player->position.y = obs->position.y - my_player->height;
+                        my_player->yspeed = 0;
+                        my_player->game_state = idle;
+
+                        if (obs->is_moving) {
+                            my_player->position.x += (obs->speed * obs->direction);
+                        }
+                    }    
+                }
+            }
+        }
+
+        if (!gameover) {
+            my_player->update(groundy);
+            lvl_manager->update();
+
+            camera.target = my_player->position;
+
+            for(auto c : current_lvl->coins){
+                if(c->collect(player_hitbox)){
+                    collected_coins += c->value;
+                }
+            }
+        }
+
+        if (IsKeyPressed(KEY_ESCAPE))
+            current_screen = MENU;
+    }
+}
+
+//Destructor logic
+Game::~Game(){
+    delete my_player;
+    delete lvl_manager;
+    delete game_ui;
+}
+
+//Draw logic
+void Game::draw() {
+    BeginDrawing();
+    ClearBackground(Color{30, 34, 48, 255});
+
+    if (current_screen == MENU) {
+        game_ui->draw_main_menu(selected_menu_option);
+    }
+    else if (current_screen == STAGES) {
+        game_ui->draw_stages_menu(selected_stage_option);
+    }
+    else if (current_screen == KEYBINDS) {
+        game_ui->draw_keybinds();
+    }
+    else if (current_screen == GAMEPLAY) {
+        if (!gameover) {
+            BeginMode2D(camera);
+            DrawRectangle(0, (int)groundy, screen_width, screen_height - (int)groundy, Color{74, 117, 44, 255});
+            my_player->Draw();
+            lvl_manager->draw();
+            EndMode2D();
+            
+            game_ui->draw_hud(my_player->lives, collected_coins);
+        } else {
+            game_ui->draw_game_over(collected_coins);
+        }
+    }
+
+    EndDrawing();
+}
+</code>
+
+level.cpp:
+<code>
+#include "../include/level.hpp"
+
+level::level(){
+
+}
+
+//destructor logic
+level::~level(){
+    for(auto obs : obstacles) delete obs;
+    for(auto c : coins) delete c;
+}
+
+//draw logic
+void level::draw(){
+    for(auto obs : obstacles) obs->Draw();
+    for(auto c : coins) c->Draw();
+}
+
+//update logic
+void level::update(){
+    for(auto obs : obstacles) obs->update();
+    for(auto c : coins) c->update();
+}
+
+//reset position logic
+void level::reset(){
+    for(auto obs : obstacles){
+        obs->position.x = obs->start_x;
+        obs->position.y = obs->start_y;
+        obs->direction = -1;  
+    }
+    for(auto c : coins){
+        c->collected = false;
+    }
+
+}
+</code>
+
+levelmanager.cpp:
+<code>
+#include "../include/levelmanager.hpp"
+
+levelmanager::levelmanager(assets_manager& vault,float groundy){
+    current_level = 0;
+
+    // ==================================================
+    // LEVEL 1 SETUP
+    // ==================================================
+    level* level1 = new level;
+    levels.push_back(level1);
+    obstacle* obstacle1 = new obstacle(800, groundy - vault.box.height, false, box, vault.box, vault.enemy_1, vault.enemy_2, vault.enemy_3);
+    coin* coin1 = new coin(500, groundy - 50, 15.0f, 10, vault.coin_pickup);
+    level1->obstacles.push_back(obstacle1);
+    level1->coins.push_back(coin1);
+
+
+    // ==================================================
+    // LEVEL 2 SETUP
+    // ==================================================
+    level* level2 = new level;
+    levels.push_back(level2);
+
+    // ==================================================
+    // LEVEL 3 SETUP
+    // ==================================================
+    level* level3 = new level;
+    levels.push_back(level3);
+}
+
+//Destructor logic
+levelmanager::~levelmanager(){
+    for(auto lvl : levels) delete lvl;
+}
+
+//update logic
+void levelmanager::update(){
+    if(levels.size() > 0) levels[current_level]->update();
+}
+
+//draw logic
+void levelmanager::draw(){
+    if(levels.size() > 0) levels[current_level]->draw();
+}
+
+//reset the current level logic
+void levelmanager::reset_current_level(){
+    if(levels.size() > 0) levels[current_level]->reset();
+}
+
+//get current level logic
+level* levelmanager::get_current_level(){
+    return levels[current_level];
+}
+</code>
+
+main.cpp:
+<code>
+#include "../include/game.hpp"
+#include "../include/assets.hpp"
+#include "../include/player.hpp"
+#include "../include/obstacle.hpp"  
+#include "../include/coin.hpp"
+
+int main() {
+    const int screen_width = 1280;
+    const int screen_height = 800;
+
+    InitWindow(screen_width, screen_height, "platformer");
+    InitAudioDevice();
+    SetTargetFPS(60);
+    SetExitKey(0);
+
+    Game game(screen_width, screen_height);
+
+    while (!WindowShouldClose() && !game.should_exit) {
+        game.update();
+        game.draw();
+    }
+
+    CloseWindow();
+    return 0;
+}
+</code>
+
+obstacle.cpp:
+<code>
+#include "../include/obstacle.hpp"  
+
+//Constructor logic
+obstacle::obstacle(float x, float y, bool moving, type_of_obstacle type, Texture2D boxe, Texture2D enemy1, Texture2D enemy2, Texture2D enemy3){
+    scale = 1.5f;
+    position.x = x;
+    is_moving = moving;
+    enemy_1 = enemy1;
+    enemy_2 = enemy2;
+    enemy_3 = enemy3;
+    the_box = boxe;
+    max_frames = 6;
+    frames_speed = 3;
+    frames_counter = 0;
+    current_frame = 0;
+    frame_rec.x = 0;
+    frame_rec.y = 0;
+    is_harmful = true;
+
+    the_type = type;
+
+    switch (the_type)
+    {
+        case spike:
+            is_harmful = true;
+            is_moving = false;
+            frame_rec.width = 30;
+            frame_rec.height = 30;
+            break;
+        case moving_pad:
+            is_harmful = false;
+            is_moving = true;
+            frame_rec.width = 100;
+            frame_rec.height = 20;
+            break;
+        case box:
+            is_harmful = false;
+            is_moving = false;
+            frame_rec.width = the_box.width;
+            frame_rec.height = the_box.height;
+            break;
+        case tree_monster:
+            frame_rec.width = enemy_1.width / max_frames;
+            frame_rec.height = enemy_1.height;
+            break;
+        case man:
+            frame_rec.width = enemy_2.width / max_frames;
+            frame_rec.height = enemy_2.height;
+            break;
+        case minion:
+            frame_rec.width = enemy_3.width / max_frames;
+            frame_rec.height = enemy_3.height;
+            break;
+    }
+
+    width = frame_rec.width * scale;
+    height = frame_rec.height * scale;
+    position.y = y - height + 25;
+
+    direction = -1;
+    start_x = position.x;
+    start_y = position.y;
+    patrol_distance = 60;
+    speed = 3.0f;
+}
+
+//Destructor logic
+obstacle::~obstacle(){
+}
+
+//animation logic
+void obstacle::update_animation(){
+        frames_counter++;
+        if(frames_counter >= frames_speed) {
+            frames_counter = 0;
+            current_frame++;
+            if(current_frame >= max_frames){
+                current_frame = 0;
+            }    
+        }
+        frame_rec.x = (float) current_frame * frame_rec.width;
+}
+
+//Movement logic
+void obstacle::update(){
+    float distance_traveled;
+    switch (the_type)
+    {
+        case spike:
+            break;
+        case moving_pad:
+            position.x = position.x + (speed * direction);
+            distance_traveled = start_x - position.x;
+            if(abs(distance_traveled) >= patrol_distance){
+                    direction = direction * (-1);
+            }
+            break;
+        case box:
+            break;
+        case tree_monster:
+        case man:
+        case minion:
+            {
+                if(is_moving == true) {
+                    position.x = position.x + (speed * direction);
+                    update_animation();
+                }
+                distance_traveled = start_x - position.x;
+                if(abs(distance_traveled) >= patrol_distance){
+                    direction = direction * (-1);
+                }
+                break;
+            }
+
+        }
+}
+
+//Drawing logic
+void obstacle::Draw(){
+    Texture2D Tex;
+    bool has_texture = true;
+    switch (the_type)
+    {
+        case spike:
+            DrawTriangle(
+                {position.x + (width / 2.0f), position.y}, 
+                {position.x, position.y + height},         
+                {position.x + width, position.y + height}, 
+                GRAY
+            );
+            has_texture = false;
+            break;
+        case moving_pad:
+            DrawRectangle(position.x, position.y, width, height, DARKPURPLE);
+            has_texture = false;
+            break;
+        case box:
+            Tex = the_box;
+            has_texture = true;
+            break;
+        case tree_monster:
+            Tex = enemy_1;
+            break;
+        case man:
+            Tex = enemy_2;
+            break;
+        case minion:
+            Tex = enemy_3;
+            break;
+    }
+
+    if(has_texture){
+        Rectangle dest = {
+            position.x,
+            position.y,
+            frame_rec.width * scale,
+            frame_rec.height * scale
+    
+        };
+        DrawTexturePro(Tex, frame_rec, dest, {0, 0}, 0.0f, WHITE);
+    }
+
+}
+</code>
+
+player.cpp:
+<code>
+#include "../include/player.hpp"
+
+
+//Constructor logic
+player::player(float start_x, float start_y, Texture2D mc_sprite_idle, Texture2D mc_sprite_run, Texture2D mc_sprite_jump,Sound jump_sound){
+    scale = 1.0f;
+    position.x = start_x;
+    position.y = start_y;
+    sprite_idle = mc_sprite_idle;
+    sprite_run = mc_sprite_run;
+    sprite_jump = mc_sprite_jump;
+    max_frames = 8;
+    frames_speed = 3;
+    frames_counter = 0;
+    current_frame = 0;
+    frame_rec.width = (float) sprite_idle.width / max_frames;
+    frame_rec.height =sprite_idle.height;
+    frame_rec.x = 0;
+    frame_rec.y = 0;
+    direction = 1;
+
+    width = (sprite_idle.width / max_frames) * scale;
+    height = sprite_idle.height * scale;
+
+    lives = 3;    
+    yspeed = 0;
+    gravity = 1;
+    horizontal_movement = 5;
+}
+
+//Destructor logic
+player::~player() {
+
+}
+
+//animation logic
+void player::update_animation(){
+        frames_counter++;
+        if(frames_counter >= frames_speed) {
+            frames_counter = 0;
+            current_frame++;
+            if(current_frame >= max_frames){
+                current_frame = 0;
+            }    
+        }
+        frame_rec.x = (float) current_frame * frame_rec.width;
+}
+
+//Movement logic
+void player::update(float groundy){
+    game_state = idle;
+    Texture2D active_texture = sprite_idle;
+    if(IsKeyDown(KEY_D)){ 
+        game_state = running;
+        position.x += horizontal_movement;
+        direction = 1;
+        active_texture = sprite_run;
+    }
+    if(IsKeyDown(KEY_A)) {
+        game_state = running;
+        position.x -= horizontal_movement;
+        direction = -1;
+        active_texture = sprite_run;
+    }
+    if(IsKeyPressed(KEY_SPACE) && position.y >= groundy - height) {
+        game_state = jumping;
+        yspeed = -20;
+        active_texture = sprite_jump;
+    }
+
+    frame_rec.width = (float)active_texture.width / max_frames;
+    frame_rec.height = (float)active_texture.height;
+
+    yspeed += gravity;
+    position.y += yspeed;
+    update_animation();
+
+    if(position.y > groundy - height){
+        position.y = groundy - height;
+        yspeed = 0;
+    }
+}
+
+//Drawing logic
+void player::Draw(){
+    Texture2D tex;
+    if(game_state == idle){
+        tex = sprite_idle;
+    }else if(game_state == running){
+        tex = sprite_run;
+    }else if(game_state == jumping){
+        tex = sprite_jump;
+    }
+
+    Rectangle source = frame_rec;
+    if(direction == -1){
+        source.width = -frame_rec.width;
+    }
+
+    float art_width = frame_rec.width * scale;
+    float art_height = frame_rec.height * scale;
+
+    Rectangle dest = {
+        position.x - (art_width - width) / 2.0f,
+        position.y - (art_height - height),
+        frame_rec.width * scale,
+        frame_rec.height * scale
+    };
+
+
+    DrawTexturePro(tex, source, dest, {0, 0}, 0.0f, WHITE);
+}
+</code>
+
+UI.cpp:
+<code>
+#include "../include/UI.hpp"
+
+UI::UI(int width, int height)
+{
+    screen_width = width;
+    screen_height = height;
+    font_size = 30;
+}
+
+void UI::draw_hud(int lives, int coins) const
+{
+    draw_panel();
+    draw_text_shadow("Lives: " + std::to_string(lives), 20, 18, font_size, RAYWHITE);
+    draw_text_shadow("Coins: " + std::to_string(coins), 220, 18, font_size, GOLD);
+}
+
+void UI::draw_game_over(int coins) const
+{
+    DrawRectangle(0, 0, screen_width, screen_height, Fade(BLACK, 0.7f));
+
+    const std::string game_over = "GAME OVER";
+    const std::string coins_text = "Coins collected: " + std::to_string(coins);
+    const std::string retry_text = "Press R to play again";
+
+    int game_over_x = (screen_width - MeasureText(game_over.c_str(), 64)) / 2;
+    int coins_x = (screen_width - MeasureText(coins_text.c_str(), 32)) / 2;
+    int retry_x = (screen_width - MeasureText(retry_text.c_str(), 26)) / 2;
+
+    draw_text_shadow(game_over, game_over_x, screen_height / 2 - 100, 64, RED);
+    draw_text_shadow(coins_text, coins_x, screen_height / 2, 32, GOLD);
+    draw_text_shadow(retry_text, retry_x, screen_height / 2 + 60, 26, RAYWHITE);
+}
+
+void UI::draw_main_menu(int selected_option) const
+{
+    const char* options[4] = {"Start Game", "Stages", "Keybinds", "Quit"};
+
+    DrawRectangleGradientV(0, 0, screen_width, screen_height, Color{26, 31, 53, 255}, Color{10, 14, 24, 255});
+    DrawCircle(screen_width - 180, 140, 110.0f, Fade(GOLD, 0.10f));
+    DrawCircle(160, screen_height - 130, 140.0f, Fade(SKYBLUE, 0.08f));
+
+    draw_centered_text("PLATFORMER", 110, 64, RAYWHITE);
+    draw_centered_text("Use UP/DOWN and ENTER", 190, 24, Fade(RAYWHITE, 0.8f));
+
+    for (int i = 0; i < 4; i++)
+    {
+        Rectangle button = {(float)screen_width / 2.0f - 180.0f, 270.0f + (float)i * 90.0f, 360.0f, 64.0f};
+        bool selected = i == selected_option;
+        Color fill = selected ? Color{220, 179, 55, 255} : Fade(RAYWHITE, 0.10f);
+        Color border = selected ? GOLD : Fade(RAYWHITE, 0.35f);
+        Color text_color = selected ? BLACK : RAYWHITE;
+
+        DrawRectangleRounded(button, 0.25f, 8, fill);
+        DrawRectangleLinesEx(button, 2.0f, border);
+        draw_centered_text(options[i], (int)button.y + 18, 30, text_color);
+    }
+}
+
+void UI::draw_stages_menu(int selected_stage) const
+{
+    const char* stages[3] = {"Stage 1 - Forest Path", "Stage 2 - Locked", "Back"};
+
+    DrawRectangleGradientV(0, 0, screen_width, screen_height, Color{24, 42, 28, 255}, Color{9, 18, 11, 255});
+    draw_centered_text("STAGES", 90, 58, RAYWHITE);
+    draw_centered_text("Only Stage 1 is playable right now", 165, 26, Fade(RAYWHITE, 0.8f));
+
+    for (int i = 0; i < 3; i++)
+    {
+        Rectangle card = {(float)screen_width / 2.0f - 230.0f, 255.0f + (float)i * 95.0f, 460.0f, 68.0f};
+        bool selected = i == selected_stage;
+        Color fill = selected ? Color{119, 181, 79, 255} : Fade(RAYWHITE, 0.08f);
+        Color border = selected ? LIME : Fade(RAYWHITE, 0.30f);
+        Color text_color = selected ? BLACK : RAYWHITE;
+
+        DrawRectangleRounded(card, 0.20f, 8, fill);
+        DrawRectangleLinesEx(card, 2.0f, border);
+        draw_centered_text(stages[i], (int)card.y + 20, 28, text_color);
+    }
+
+    draw_centered_text("Press ESC to return", screen_height - 80, 22, Fade(RAYWHITE, 0.75f));
+}
+
+void UI::draw_keybinds() const
+{
+    DrawRectangleGradientV(0, 0, screen_width, screen_height, Color{44, 29, 24, 255}, Color{15, 10, 8, 255});
+    draw_centered_text("KEYBINDS", 90, 58, RAYWHITE);
+
+    DrawRectangleRounded({screen_width / 2.0f - 270.0f, 220.0f, 540.0f, 280.0f}, 0.18f, 8, Fade(BLACK, 0.35f));
+    DrawRectangleLinesEx({screen_width / 2.0f - 270.0f, 220.0f, 540.0f, 280.0f}, 2.0f, Fade(RAYWHITE, 0.30f));
+
+    draw_text_shadow("A  - Move Left", screen_width / 2 - 210, 270, 30, RAYWHITE);
+    draw_text_shadow("D  - Move Right", screen_width / 2 - 210, 320, 30, RAYWHITE);
+    draw_text_shadow("SPACE  - Jump", screen_width / 2 - 210, 370, 30, RAYWHITE);
+    draw_text_shadow("R  - Restart After Game Over", screen_width / 2 - 210, 420, 30, GOLD);
+
+    draw_centered_text("Press ESC to return", screen_height - 80, 22, Fade(RAYWHITE, 0.75f));
+}
+
+void UI::draw_panel() const
+{
+    DrawRectangleRounded({10, 10, 360, 56}, 0.25f, 8, Fade(BLACK, 0.45f));
+    DrawRectangleLinesEx({10, 10, 360, 56}, 2.0f, Fade(RAYWHITE, 0.35f));
+}
+
+void UI::draw_text_shadow(const std::string& text, int x, int y, int size, Color color) const
+{
+    DrawText(text.c_str(), x + 2, y + 2, size, Fade(BLACK, 0.7f));
+    DrawText(text.c_str(), x, y, size, color);
+}
+
+void UI::draw_centered_text(const std::string& text, int y, int size, Color color) const
+{
+    int x = (screen_width - MeasureText(text.c_str(), size)) / 2;
+    draw_text_shadow(text, x, y, size, color);
+}
+
+</code>
+
