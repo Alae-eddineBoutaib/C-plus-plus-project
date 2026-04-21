@@ -7,10 +7,10 @@ struct assets_manager
     Texture2D player_sprite_idle;
     Texture2D player_sprite_run;
     Texture2D player_sprite_jump;
-    Texture2D enemy_1;
-    Texture2D enemy_2;
-    Texture2D enemy_3;
+    Texture2D grass;
+    Texture2D spike;
     Texture2D box;
+    Texture2D ladder;
 
     // Sounds
     Sound player_walk;

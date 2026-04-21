@@ -27,6 +27,9 @@ struct player
     enum state game_state;
     int direction;
     bool on_ground;
+    bool on_ladder;
+    bool is_hurt;
+    int hurt_timer;
 
     //movements
     float horizontal_movement;

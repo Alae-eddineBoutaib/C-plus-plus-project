@@ -6,10 +6,10 @@ assets_manager::assets_manager() {
     player_sprite_idle = LoadTexture("assets/images/Swordsman/Idle.png");
     player_sprite_run = LoadTexture("assets/images/Swordsman/Run.png");
     player_sprite_jump = LoadTexture("assets/images/Swordsman/Jump.png");
-    enemy_1 =  LoadTexture("assets/images/enemy1/Walk.png");
-    enemy_2 = LoadTexture("assets/images/enemy2/Walk.png");
-    enemy_3 = LoadTexture("assets/images/enemy3/Walk.png");
+    spike = LoadTexture("assets/images/objects/spikes.png");
+    grass = LoadTexture("assets/images/tileset/Tile_01.png");
     box = LoadTexture("assets/images/objects/box.png");
+    ladder = LoadTexture("assets/images/objects/Ladder1.png");
     player_jump = LoadSound("assets/sounds/jump.mp3");
     coin_pickup = LoadSound("assets/sounds/coin pick up.mp3");
     
@@ -19,9 +19,10 @@ assets_manager::~assets_manager() {
     UnloadTexture(player_sprite_idle);
     UnloadTexture(player_sprite_run);
     UnloadTexture(player_sprite_jump);
-    UnloadTexture(enemy_1);
-    UnloadTexture(enemy_2);
-    UnloadTexture(enemy_3);
+    UnloadTexture(spike);
+    UnloadTexture(grass);
+    UnloadTexture(ladder);
+    UnloadTexture(box);
     UnloadSound(player_jump);
     UnloadSound(coin_pickup);
 }
@@ -115,7 +116,6 @@ game.cpp:
 #include "../include/game.hpp"
 #include "../include/levelmanager.hpp"
 
-//constructor logic
 Game::Game(int width, int height) {
     screen_width = width;
     screen_height = height;
@@ -130,32 +130,29 @@ Game::Game(int width, int height) {
     groundy = screen_height - 100;
     current_screen = MENU;
 
-    my_player = new player(10, 750, vault.player_sprite_idle,
+    my_player = new player(64,groundy - 64, vault.player_sprite_idle,
                            vault.player_sprite_run,
                            vault.player_sprite_jump,
                            vault.player_jump);
 
     lvl_manager = new levelmanager(vault, groundy);
-
     game_ui = new UI(screen_width, screen_height);
 
     camera.target = my_player->position;
-    camera.offset = {(float)screen_width / 2, (float)screen_height / 2};
+    camera.offset = {(float)screen_width / 3, (float)screen_height * 0.7f};
     camera.zoom = 1.0f;
 }
 
-//reset logic
 void Game::reset() {
     gameover = false;
     collected_coins = 0;
 
     my_player->lives = 3;
-    my_player->position = {10, 750};
+    my_player->position = {64, groundy - 200};  
 
     lvl_manager->reset_current_level();
 }
 
-//update logic
 void Game::update() {
     if (current_screen == MENU) {
         if (IsKeyPressed(KEY_DOWN))
@@ -187,11 +184,9 @@ void Game::update() {
 
         if (IsKeyPressed(KEY_ENTER)) {
             if (selected_stage_option == 0) {
-                lvl_manager->current_level = 0; 
+                lvl_manager->current_level = 0;
                 reset();
                 current_screen = GAMEPLAY;
-            } else if (selected_stage_option == 1) {
-                
             } else if (selected_stage_option == 2) {
                 current_screen = MENU;
             }
@@ -215,6 +210,24 @@ void Game::update() {
             }
             return;
         }
+
+        if(my_player->hurt_timer > 0) my_player->hurt_timer--;
+        if(my_player->hurt_timer > 0) my_player->is_hurt = true;
+        else my_player->is_hurt = false;
+
+        // then for void death:
+        if(my_player->position.y > groundy + 300 && !my_player->is_hurt){
+            my_player->lives--;
+            my_player->position = {64, groundy - 64};
+            my_player->yspeed = 0;
+            my_player->hurt_timer = 120; // 2 seconds of invincibility
+            if(my_player->lives <= 0) gameover = true;
+        }
+
+        Vector2 prev_pos = my_player->position;
+
+        level* current_lvl = lvl_manager->get_current_level();
+
         Rectangle player_hitbox = {
             my_player->position.x,
             my_player->position.y,
@@ -222,39 +235,116 @@ void Game::update() {
             my_player->height
         };
 
-        level* current_lvl = lvl_manager->get_current_level();
-
-        for(auto obs: current_lvl->obstacles){
-            Rectangle obstacle_hitbox = { obs->position.x, obs->position.y, obs->width, obs->height };
-            if (CheckCollisionRecs(player_hitbox, obstacle_hitbox)) {
-                if(obs->is_harmful){
-                    my_player->lives--;
-                    my_player->position = {10, 750};
-                    if (my_player->lives <= 0) gameover = true;
-                } else{
-                    if (my_player->yspeed > 0 && (my_player->position.y + my_player->height - my_player->yspeed) <= obs->position.y + 15) {
-                        my_player->position.y = obs->position.y - my_player->height;
-                        my_player->yspeed = 0;
-                        my_player->game_state = idle;
-
-                        if (obs->is_moving) {
-                            my_player->position.x += (obs->speed * obs->direction);
-                        }
-                    }    
+        my_player->on_ladder = false;
+        for(auto& rect : current_lvl->ladders){
+            if(CheckCollisionRecs(player_hitbox, rect)){
+                my_player->on_ladder = true;
+                my_player->direction = 1;
+                if(IsKeyPressed(KEY_SPACE)){
+                    my_player->yspeed = -25;
+                    my_player->position.x += my_player->direction * 150;
                 }
+                break;
             }
         }
 
-        if (!gameover) {
-            my_player->update(groundy);
-            lvl_manager->update();
+        my_player->update(groundy);
 
-            camera.target = my_player->position;
+        player_hitbox = {my_player->position.x, my_player->position.y, my_player->width, my_player->height};
 
-            for(auto c : current_lvl->coins){
-                if(c->collect(player_hitbox)){
-                    collected_coins += c->value;
+        for (auto obs : current_lvl->obstacles) {
+            // 1. Get the exact hitbox. NO SHRINKING for solid tiles!
+            Rectangle obstacle_hitbox = {
+                obs->position.x,
+                obs->position.y,
+                obs->width,
+                obs->height
+            };
+
+            // If it's a spike, we make the hitbox smaller so it's fair to the player
+            if (obs->the_type == spike) {
+                obstacle_hitbox.x += obs->width * 0.2f;
+                obstacle_hitbox.width *= 0.6f;
+                obstacle_hitbox.y += obs->height * 0.5f;
+                obstacle_hitbox.height *= 0.5f;
+            }
+
+            if (!CheckCollisionRecs(player_hitbox, obstacle_hitbox))
+                continue;
+
+            if(obs->is_harmful && !my_player->is_hurt){
+                my_player->lives--;
+                my_player->position = {64, groundy - 64};
+                my_player->yspeed = 0;
+                my_player->hurt_timer = 120;
+                if(my_player->lives <= 0) gameover = true;
+                continue;
+            }
+
+            float prev_bottom = prev_pos.y + my_player->height;
+            float prev_right = prev_pos.x + my_player->width;
+
+            if (my_player->yspeed >= 0 && prev_bottom <= obstacle_hitbox.y) {
+                my_player->position.y = obstacle_hitbox.y - my_player->height;
+                my_player->yspeed = 0;
+                my_player->on_ground = true;
+
+                if (obs->is_moving) {
+                    my_player->position.x += obs->speed * obs->direction;
                 }
+
+            } else if (my_player->yspeed < 0 && prev_pos.y >= obstacle_hitbox.y + obstacle_hitbox.height) {
+                my_player->position.y = obstacle_hitbox.y + obstacle_hitbox.height;
+                my_player->yspeed = 0;
+            } else if (prev_right <= obstacle_hitbox.x) {
+                my_player->position.x = obstacle_hitbox.x - my_player->width;
+            } else if (prev_pos.x >= obstacle_hitbox.x + obstacle_hitbox.width) {
+                my_player->position.x = obstacle_hitbox.x + obstacle_hitbox.width;
+            }
+
+            player_hitbox.x = my_player->position.x;
+            player_hitbox.y = my_player->position.y;
+        }
+
+        for(auto& rect : current_lvl->terrain_tiles){
+            if(!CheckCollisionRecs(player_hitbox, rect)) continue;
+            
+            float prev_bottom = prev_pos.y + my_player->height;
+            
+            if(my_player->yspeed >= 0 && prev_bottom <= rect.y + 2){
+                my_player->position.y = rect.y - my_player->height;
+                my_player->yspeed = 0;
+                my_player->on_ground = true;
+            } else if(my_player->yspeed < 0 && prev_pos.y >= rect.y + rect.height){
+                my_player->position.y = rect.y + rect.height;
+                my_player->yspeed = 0;
+            } else if(prev_pos.x + my_player->width <= rect.x){
+                my_player->position.x = rect.x - my_player->width;
+            } else if(prev_pos.x >= rect.x + rect.width){
+                my_player->position.x = rect.x + rect.width;
+            }
+            
+            player_hitbox.x = my_player->position.x;
+            player_hitbox.y = my_player->position.y;
+        }
+
+        if(CheckCollisionRecs(player_hitbox, current_lvl->goal)){
+            if(lvl_manager->current_level < 8){
+                lvl_manager->current_level++;
+                reset();
+            } else {
+                // game won - for now just go to menu
+                current_screen = MENU;
+            }
+        }
+      
+
+        lvl_manager->update();
+        camera.target = my_player->position;
+
+        for (auto c : current_lvl->coins) {
+            if (c->collect(player_hitbox)) {
+                collected_coins += c->value;
             }
         }
 
@@ -263,14 +353,12 @@ void Game::update() {
     }
 }
 
-//Destructor logic
 Game::~Game(){
     delete my_player;
     delete lvl_manager;
     delete game_ui;
 }
 
-//Draw logic
 void Game::draw() {
     BeginDrawing();
     ClearBackground(Color{30, 34, 48, 255});
@@ -287,7 +375,6 @@ void Game::draw() {
     else if (current_screen == GAMEPLAY) {
         if (!gameover) {
             BeginMode2D(camera);
-            DrawRectangle(0, (int)groundy, screen_width, screen_height - (int)groundy, Color{74, 117, 44, 255});
             my_player->Draw();
             lvl_manager->draw();
             EndMode2D();
@@ -320,6 +407,23 @@ level::~level(){
 void level::draw(){
     for(auto obs : obstacles) obs->Draw();
     for(auto c : coins) c->Draw();
+    for(auto& rect : ladders){
+        DrawTexturePro(
+            ladder_texture,
+            {0, 0, (float)ladder_texture.width, (float)ladder_texture.height},
+            {rect.x, rect.y, rect.width, rect.height},
+            {0, 0}, 0.0f, WHITE
+        );
+    }
+    for(auto& rect : terrain_tiles){
+        DrawTexturePro(
+            terrain_texture,
+            {0, 0, (float)terrain_texture.width, (float)terrain_texture.height},
+            rect,
+            {0, 0}, 0.0f, WHITE
+        );
+    }
+    DrawRectangle(goal.x, goal.y, goal.width, goal.height, GREEN);
 }
 
 //update logic
@@ -327,6 +431,47 @@ void level::update(){
     for(auto obs : obstacles) obs->update();
     for(auto c : coins) c->update();
 }
+
+//loading obstacles from the map logic
+void level::load_from_grid(const char** map_data, int rows, int cols, float tile_size, assets_manager& vault, float ground_y){
+    ladder_texture = vault.ladder;
+    box_texture = vault.box;
+    terrain_texture = vault.grass;
+    coin_sound = vault.coin_pickup;
+    spike_texture = vault.spike;
+    groundy = ground_y;
+
+    for(auto obs : obstacles) delete obs;
+    obstacles.clear();
+
+    for(auto c : coins) delete c;
+    coins.clear();
+
+    for(int y = 0; y < rows; y++){
+        for(int x = 0; x < cols; x++){
+            char tile = map_data[y][x];
+
+            float spawn_x = x * tile_size;
+            float spawn_y = groundy - (rows - y) * tile_size;
+
+            if(tile == 'T'){
+                terrain_tiles.push_back({spawn_x, spawn_y, tile_size, tile_size});
+            } else if(tile == 'B'){
+                obstacles.push_back(new obstacle(spawn_x, spawn_y, false, box, box_texture, spike_texture));
+            } else if(tile == 'M'){
+                obstacles.push_back(new obstacle(spawn_x, spawn_y, true, moving_pad, box_texture, spike_texture));
+            } else if(tile == 'S'){
+                obstacles.push_back(new obstacle(spawn_x, spawn_y, false, spike, box_texture, spike_texture));
+            } else if(tile == 'C'){
+                coins.push_back(new coin(spawn_x, spawn_y, 15.0f, 1, coin_sound));
+            } else if(tile == 'L'){
+                ladders.push_back({spawn_x, spawn_y, 32, 32});
+            } else if(tile == 'G'){
+                goal = {spawn_x, spawn_y, 32, 32};
+            }
+        }
+    }
+}  
 
 //reset position logic
 void level::reset(){
@@ -337,6 +482,7 @@ void level::reset(){
     }
     for(auto c : coins){
         c->collected = false;
+        
     }
 
 }
@@ -354,23 +500,139 @@ levelmanager::levelmanager(assets_manager& vault,float groundy){
     // ==================================================
     level* level1 = new level;
     levels.push_back(level1);
-    obstacle* obstacle1 = new obstacle(800, groundy - vault.box.height, false, box, vault.box, vault.enemy_1, vault.enemy_2, vault.enemy_3);
-    coin* coin1 = new coin(500, groundy - 50, 15.0f, 10, vault.coin_pickup);
-    level1->obstacles.push_back(obstacle1);
-    level1->coins.push_back(coin1);
+    //LEVEL MAP
+    const char* level1_map[] = {
+        "................................................................................................G",
+        "................................................................................................T",
+        "..............C.......C..............................................C.........................TT",
+        "....TTTT......TTTT....TTTT....................TTTT.........TTTT.......TTTT..................TTTT..",
+        "TTTTT....MM..........M.....TTTTTTT...MM...TTTTTTT...MM....TTTTT..MM...TTTTTT................TT.",
+        "TTTTT..............................................TTTTTTTTTTTTT.......TTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
 
-
+    level1->load_from_grid(level1_map, 6, 80, 32, vault, groundy);
     // ==================================================
     // LEVEL 2 SETUP
     // ==================================================
     level* level2 = new level;
     levels.push_back(level2);
+    //LEVEL MAP
+    const char* level2_map[] = {
+        ".....................................................................................................G",
+        ".....................................................................................................T",
+        "...............C.........C.......................................C.............................C....TT",
+        "....TTTT.......TTTT......TTTT...............TTTT.............TTTT.....TTTT.....................TTTT..",
+        "TTTTT..MM....S.....S....M.....TTTTTTT..MM..TTTTT..MM.......TTTTT...S...S...TTTTTTT..MM......TTTTT.",
+        "TTTTT...............................................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
 
+    level2->load_from_grid(level2_map, 6, 80, 32, vault, groundy);
     // ==================================================
     // LEVEL 3 SETUP
     // ==================================================
     level* level3 = new level;
     levels.push_back(level3);
+    //LEVEL MAP
+    const char* level3_map[] = {
+        "........................................................................................................G",
+        "........................................................................................................T",
+        ".............C......C.........C...................C.............C..............C....................C..TT",
+        "...TTTT......TTT....TTT.......TTTT........TTTT...TTT...........TTT............TTT..................TTTT.",
+        "TTTT...MM..S.....SS....S.MM..TTTTT.MM..TTTTTT...TTT..MM.....STTTS.MM.......STTTSS..MM.........TTTTT..",
+        "TTTT..............................................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+
+    level3->load_from_grid(level3_map, 6, 80, 32, vault, groundy);
+    // ==================================================
+    // LEVEL 4 SETUP
+    // ==================================================
+    level* level4 = new level;
+    levels.push_back(level4);
+    const char* level4_map[] = {
+        "..............C..................................C.................................C....................G",
+        "..............T..................................T.................................T....................T",
+        "....TTTT......T....L.....TTTT.....L..............T....L....TTTT..............TTTT.L.................TT",
+        "....TTTT......T....L....S...S.....L....TTTT.....TT....L....TTTT...TTTT.......TTTT.L..............TTTT.",
+        "TTTTTTTTT.MM..T....L.TTTTTTTTT...L..TTTTTT...TTTT.MM.L..TTTTTTTTTTTTT.MM...TTTTT.L.MM..........TTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+
+    level4->load_from_grid(level4_map, 6, 80, 32, vault, groundy);
+    // ==================================================
+    // LEVEL 5 SETUP
+    // ==================================================
+    level* level5 = new level;
+    levels.push_back(level5);
+    const char* level5_map[] = {
+        "..C.....................................C.....................................C..............................G",
+        "..T.....................................T.....................................T..............................T",
+        "..T....L....TTTT......L.................T....L....TTT.........L...............T...L...TTTT.................TT",
+        "..T....L....TTTT..S...L....TTTT.....S..T....L....TTT...TTTT..L....TTTT......T...L...TTTT...S.S..TTTT....TTTT",
+        "TTTTT.MM.L..TTTT..S.MMLL.TTTTTT....STTTTT.MM.L..TTTTTTTTTT.MM.L.TTTTTT.MM.TT.ML...TTTTTSSTTTTTTTTTT..TTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+
+    level5->load_from_grid(level5_map, 6, 80, 32, vault, groundy);
+    // ==================================================
+    // LEVEL 6 SETUP
+    // ==================================================
+    level* level6 = new level;
+    levels.push_back(level6);
+    const char* level6_map[] = {
+        "C.......................................C.....................................C...................................G",
+        "T.......................................T.....................................T...................................T",
+        "T..L....TTTT......L....TTT..L...........T....L....TTT.........L....TTT......T...L....TTT........L....TTT......TT",
+        "T..L....TTTT..S...L....TTT..L..TTTT.S..T....L....TTT...TTTT..L....TTT.S...T...L....TTT..S.S...L....TTTT....TTTT",
+        "T.ML..STTTTTSS..MMLL.STTTTML.TTTTTTSSTTTT.MM.L.STTTTTTTTTTT.ML.STTTTTSS.TTTT.ML.STTTTTSSTTTTTTTTTT.ML...STTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+
+    level6->load_from_grid(level6_map, 6, 80, 32, vault, groundy);
+    // ==================================================
+    // LEVEL 7 SETUP
+    // ==================================================
+    level* level7 = new level;
+    levels.push_back(level7);
+    const char* level7_map[] = {
+        "C..............C.......................C............................C.............................C......................G",
+        "T..............T.......................T............................T.............................T......................T",
+        "T.L..TTTT.L....T...L...TTT.L..........T....L...TTT......L..........T....L....TTT......L.........T...L...TTTT.........TT",
+        "T.L..TTTT.L.S..T...L...TTT.L..TTTT....T.S..L...TTT.TTTT.L.S.......T.S..L....TTT.TTTT.L.S......T...L...TTTT..S.S...TTTT",
+        "T.ML.TTTTTLSSTTTTML.STTTTTML.TTTTTTSSTTTTTML.STTTTTTTTTTTML.SSTTTTTML.STTTTTTTTTTTTTML.SS.TTTTTTML.STTTTTTSSTTTTTTTTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+
+    level7->load_from_grid(level7_map, 6, 80, 32, vault, groundy);
+    // ==================================================
+    // LEVEL 8 SETUP
+    // ==================================================
+    level* level8 = new level;
+    levels.push_back(level8);
+    const char* level8_map[] = {
+        "C...C..............C.....C.......................C....C..........................C....C...........................C.....G",
+        "T...T..............T.....T.......................T....T..........................T....T...........................T.....T",
+        "T.L.T.L..TTTT.L....T..L..T...L...TTT.L..........TL...T....L...TTT......L......TL....T....L....TTT......L.......TL...TT",
+        "T.L.T.L..TTTT.LS...T..L..T...L...TTT.L..TTTT....TL.S.T.S..L...TTT.TTTT.L.S...TL.S..T.S..L....TTT.TTTT.L.S....TL..TTTT",
+        "TMLTTTML.TTTTTLSSTTTTMLTTML.STTTTTML.TTTTTTSSTTTTTMLSTTTTTML.STTTTTTTTTTTML.SSTTTTMTSTTTTTML.STTTTTTTTTTTML.SS.TTTTTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+
+    level8->load_from_grid(level8_map, 6, 80, 32, vault, groundy);
+    // ==================================================
+    // LEVEL 9 SETUP
+    // ==================================================
+    level* level9 = new level;
+    levels.push_back(level9);
+    const char* level9_map[] = {
+        "C.C...C..............C..C.....C.......................C...C..C..........................C..C...C.................C.....G",
+        "T.T...T..............T..T.....T.......................T...T..T..........................T..T...T.................T.....T",
+        "T.TL..TL.TTTT.L......T.TL.....T...L...TTT.L..........TL..TL..T....L...TTT......L......TL.TL..T....L....TTT....TL....TT",
+        "T.TL..TL.TTTT.LS.S...T.TL..S..T.S.L...TTT.L..TTTT...TL.STL.ST.S..L...TTT.TTTT.L.SS..TL.TLS.T.SS.L....TTT....TL..STTTT",
+        "TTMLSSTML.TTTTTLSSTTTTTML.SSTTTTML.STTTTTML.TTTTTTSSTTTTML.TTTML.STTTTTTTTTTTML.SSTTTTML.TTMLSSTTTTTML.STTTTTTTML.STTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+
+    level9->load_from_grid(level9_map, 6, 80, 32, vault, groundy);
 }
 
 //Destructor logic
@@ -433,18 +695,13 @@ obstacle.cpp:
 #include "../include/obstacle.hpp"  
 
 //Constructor logic
-obstacle::obstacle(float x, float y, bool moving, type_of_obstacle type, Texture2D boxe, Texture2D enemy1, Texture2D enemy2, Texture2D enemy3){
-    scale = 1.5f;
+obstacle::obstacle(float x, float y, bool moving, type_of_obstacle type, Texture2D boxe , Texture2D spikes){
+    box_scale = 1.0f;
     position.x = x;
     is_moving = moving;
-    enemy_1 = enemy1;
-    enemy_2 = enemy2;
-    enemy_3 = enemy3;
+
+    spike_texture = spikes;
     the_box = boxe;
-    max_frames = 6;
-    frames_speed = 3;
-    frames_counter = 0;
-    current_frame = 0;
     frame_rec.x = 0;
     frame_rec.y = 0;
     is_harmful = true;
@@ -456,8 +713,8 @@ obstacle::obstacle(float x, float y, bool moving, type_of_obstacle type, Texture
         case spike:
             is_harmful = true;
             is_moving = false;
-            frame_rec.width = 30;
-            frame_rec.height = 30;
+            frame_rec.width = spike_texture.width;
+            frame_rec.height = spike_texture.height;
             break;
         case moving_pad:
             is_harmful = false;
@@ -468,49 +725,29 @@ obstacle::obstacle(float x, float y, bool moving, type_of_obstacle type, Texture
         case box:
             is_harmful = false;
             is_moving = false;
+
             frame_rec.width = the_box.width;
             frame_rec.height = the_box.height;
-            break;
-        case tree_monster:
-            frame_rec.width = enemy_1.width / max_frames;
-            frame_rec.height = enemy_1.height;
-            break;
-        case man:
-            frame_rec.width = enemy_2.width / max_frames;
-            frame_rec.height = enemy_2.height;
-            break;
-        case minion:
-            frame_rec.width = enemy_3.width / max_frames;
-            frame_rec.height = enemy_3.height;
+            width = frame_rec.width * box_scale;
+            height = frame_rec.height * box_scale;
             break;
     }
 
-    width = frame_rec.width * scale;
-    height = frame_rec.height * scale;
-    position.y = y - height + 25;
+    if(the_type != box){
+        width = frame_rec.width;
+        height = frame_rec.height;
+    }
+    position.y = y - height;
 
     direction = -1;
     start_x = position.x;
     start_y = position.y;
-    patrol_distance = 60;
+    patrol_distance = 150;
     speed = 3.0f;
 }
 
 //Destructor logic
 obstacle::~obstacle(){
-}
-
-//animation logic
-void obstacle::update_animation(){
-        frames_counter++;
-        if(frames_counter >= frames_speed) {
-            frames_counter = 0;
-            current_frame++;
-            if(current_frame >= max_frames){
-                current_frame = 0;
-            }    
-        }
-        frame_rec.x = (float) current_frame * frame_rec.width;
 }
 
 //Movement logic
@@ -529,69 +766,24 @@ void obstacle::update(){
             break;
         case box:
             break;
-        case tree_monster:
-        case man:
-        case minion:
-            {
-                if(is_moving == true) {
-                    position.x = position.x + (speed * direction);
-                    update_animation();
-                }
-                distance_traveled = start_x - position.x;
-                if(abs(distance_traveled) >= patrol_distance){
-                    direction = direction * (-1);
-                }
-                break;
-            }
-
         }
 }
 
 //Drawing logic
 void obstacle::Draw(){
-    Texture2D Tex;
-    bool has_texture = true;
-    switch (the_type)
-    {
-        case spike:
-            DrawTriangle(
-                {position.x + (width / 2.0f), position.y}, 
-                {position.x, position.y + height},         
-                {position.x + width, position.y + height}, 
-                GRAY
-            );
-            has_texture = false;
-            break;
-        case moving_pad:
-            DrawRectangle(position.x, position.y, width, height, DARKPURPLE);
-            has_texture = false;
-            break;
+    switch (the_type) {
         case box:
-            Tex = the_box;
-            has_texture = true;
+            DrawTextureEx(the_box, position, 0.0f, box_scale, WHITE);
             break;
-        case tree_monster:
-            Tex = enemy_1;
+
+        case moving_pad:
+            //DrawTextureEx(the_box, position, 0.0f, box_scale, WHITE);
+            DrawRectangle(position.x, position.y, width, height, DARKPURPLE);
             break;
-        case man:
-            Tex = enemy_2;
-            break;
-        case minion:
-            Tex = enemy_3;
+        case spike:
+            DrawTextureEx(spike_texture, position, 0.0f, box_scale, WHITE);
             break;
     }
-
-    if(has_texture){
-        Rectangle dest = {
-            position.x,
-            position.y,
-            frame_rec.width * scale,
-            frame_rec.height * scale
-    
-        };
-        DrawTexturePro(Tex, frame_rec, dest, {0, 0}, 0.0f, WHITE);
-    }
-
 }
 </code>
 
@@ -599,99 +791,124 @@ player.cpp:
 <code>
 #include "../include/player.hpp"
 
-
-//Constructor logic
-player::player(float start_x, float start_y, Texture2D mc_sprite_idle, Texture2D mc_sprite_run, Texture2D mc_sprite_jump,Sound jump_sound){
+player::player(float start_x, float start_y, Texture2D mc_sprite_idle, Texture2D mc_sprite_run, Texture2D mc_sprite_jump, Sound jump_sound){
     scale = 1.0f;
-    position.x = start_x;
-    position.y = start_y;
+    position = {start_x, start_y};
+    is_hurt = false;
+    hurt_timer = 0;
+
     sprite_idle = mc_sprite_idle;
     sprite_run = mc_sprite_run;
     sprite_jump = mc_sprite_jump;
+
     max_frames = 8;
     frames_speed = 3;
     frames_counter = 0;
     current_frame = 0;
-    frame_rec.width = (float) sprite_idle.width / max_frames;
-    frame_rec.height =sprite_idle.height;
+
+    frame_rec.width = (float)sprite_idle.width / max_frames;
+    frame_rec.height = sprite_idle.height;
     frame_rec.x = 0;
     frame_rec.y = 0;
+
     direction = 1;
 
-    width = (sprite_idle.width / max_frames) * scale;
-    height = sprite_idle.height * scale;
+    width = frame_rec.width * scale;
+    height = frame_rec.height * scale;
 
-    lives = 3;    
+    lives = 3;
+
     yspeed = 0;
-    gravity = 1;
+    gravity = 1.5;
     horizontal_movement = 5;
+
+    on_ground = false;
 }
 
-//Destructor logic
-player::~player() {
+player::~player() {}
 
-}
-
-//animation logic
 void player::update_animation(){
-        frames_counter++;
-        if(frames_counter >= frames_speed) {
-            frames_counter = 0;
-            current_frame++;
-            if(current_frame >= max_frames){
-                current_frame = 0;
-            }    
-        }
-        frame_rec.x = (float) current_frame * frame_rec.width;
+    frames_counter++;
+    if(frames_counter >= frames_speed) {
+        frames_counter = 0;
+        current_frame++;
+        if(current_frame >= max_frames){
+            current_frame = 0;
+        }    
+    }
+    frame_rec.x = (float) current_frame * frame_rec.width;
 }
 
-//Movement logic
 void player::update(float groundy){
-    game_state = idle;
-    Texture2D active_texture = sprite_idle;
-    if(IsKeyDown(KEY_D)){ 
-        game_state = running;
+    if(IsKeyPressed(KEY_SPACE) && on_ground){
+        yspeed = -18;
+        on_ground = false;
+    }
+
+    on_ground = false;
+
+    if(on_ladder){
+        yspeed = 0;
+        if(IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) position.y -= 3.0f;
+        if(IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) position.y += 3.0f;
+    } else {
+        yspeed += gravity;
+        position.y += yspeed;
+    }
+
+    if(IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)){ 
         position.x += horizontal_movement;
         direction = 1;
-        active_texture = sprite_run;
     }
-    if(IsKeyDown(KEY_A)) {
-        game_state = running;
+    if(IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
         position.x -= horizontal_movement;
         direction = -1;
-        active_texture = sprite_run;
     }
-    if(IsKeyPressed(KEY_SPACE) && position.y >= groundy - height) {
+}
+
+void player::Draw(){
+    int prev_state = game_state;
+
+    if(!on_ground){
         game_state = jumping;
-        yspeed = -20;
-        active_texture = sprite_jump;
     }
+    else if(IsKeyDown(KEY_A) || IsKeyDown(KEY_D)){
+        game_state = running;
+    }
+    else{
+        game_state = idle;
+    }
+    
+    Texture2D active_texture;
+    int active_max_frames = 8; 
+
+    if (game_state == idle) {
+        active_texture = sprite_idle;
+        active_max_frames = 8; 
+    } 
+    else if (game_state == running) {
+        active_texture = sprite_run;
+        active_max_frames = 8; 
+    } 
+    else {
+        active_texture = sprite_jump;
+        active_max_frames = 8; 
+    }
+
+    if (game_state != prev_state) {
+        current_frame = 0;
+        frames_counter = 0;
+    }
+
+    max_frames = active_max_frames; 
 
     frame_rec.width = (float)active_texture.width / max_frames;
     frame_rec.height = (float)active_texture.height;
 
-    yspeed += gravity;
-    position.y += yspeed;
     update_animation();
 
-    if(position.y > groundy - height){
-        position.y = groundy - height;
-        yspeed = 0;
-    }
-}
-
-//Drawing logic
-void player::Draw(){
-    Texture2D tex;
-    if(game_state == idle){
-        tex = sprite_idle;
-    }else if(game_state == running){
-        tex = sprite_run;
-    }else if(game_state == jumping){
-        tex = sprite_jump;
-    }
-
     Rectangle source = frame_rec;
+
     if(direction == -1){
         source.width = -frame_rec.width;
     }
@@ -702,12 +919,11 @@ void player::Draw(){
     Rectangle dest = {
         position.x - (art_width - width) / 2.0f,
         position.y - (art_height - height),
-        frame_rec.width * scale,
-        frame_rec.height * scale
+        art_width,
+        art_height
     };
 
-
-    DrawTexturePro(tex, source, dest, {0, 0}, 0.0f, WHITE);
+    DrawTexturePro(active_texture, source, dest, {0, 0}, 0.0f, WHITE);
 }
 </code>
 

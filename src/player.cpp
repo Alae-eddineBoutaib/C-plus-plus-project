@@ -3,6 +3,8 @@
 player::player(float start_x, float start_y, Texture2D mc_sprite_idle, Texture2D mc_sprite_run, Texture2D mc_sprite_jump, Sound jump_sound){
     scale = 1.0f;
     position = {start_x, start_y};
+    is_hurt = false;
+    hurt_timer = 0;
 
     sprite_idle = mc_sprite_idle;
     sprite_run = mc_sprite_run;
@@ -26,7 +28,7 @@ player::player(float start_x, float start_y, Texture2D mc_sprite_idle, Texture2D
     lives = 3;
 
     yspeed = 0;
-    gravity = 1;
+    gravity = 1.5;
     horizontal_movement = 5;
 
     on_ground = false;
@@ -48,26 +50,26 @@ void player::update_animation(){
 
 void player::update(float groundy){
     if(IsKeyPressed(KEY_SPACE) && on_ground){
-        yspeed = -20;
+        yspeed = -18;
         on_ground = false;
     }
 
     on_ground = false;
 
-    yspeed += gravity;
-    position.y += yspeed;
-
-    if(position.y >= groundy - height){
-        position.y = groundy - height;
+    if(on_ladder){
         yspeed = 0;
-        on_ground = true;
+        if(IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) position.y -= 3.0f;
+        if(IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) position.y += 3.0f;
+    } else {
+        yspeed += gravity;
+        position.y += yspeed;
     }
 
-    if(IsKeyDown(KEY_D)){ 
+    if(IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)){ 
         position.x += horizontal_movement;
         direction = 1;
     }
-    if(IsKeyDown(KEY_A)) {
+    if(IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
         position.x -= horizontal_movement;
         direction = -1;
     }
