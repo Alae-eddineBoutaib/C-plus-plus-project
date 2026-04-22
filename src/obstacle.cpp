@@ -21,6 +21,7 @@ obstacle::obstacle(float x, float y, bool moving, type_of_obstacle type, Texture
             is_moving = false;
             frame_rec.width = spike_texture.width;
             frame_rec.height = spike_texture.height;
+            box_scale = 2.0f;
             break;
         case moving_pad:
             is_harmful = false;
@@ -84,7 +85,7 @@ void obstacle::Draw(){
 
         case moving_pad:
             //DrawTextureEx(the_box, position, 0.0f, box_scale, WHITE);
-            DrawRectangle(position.x, position.y, width, height, DARKPURPLE);
+            DrawRectangle(position.x, position.y, width, height, Color{220, 120, 20, 255});
             break;
         case spike:
             DrawTextureEx(spike_texture, position, 0.0f, box_scale, WHITE);

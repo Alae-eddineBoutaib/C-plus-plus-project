@@ -15,7 +15,7 @@ Game::Game(int width, int height) {
     groundy = screen_height - 100;
     current_screen = MENU;
 
-    my_player = new player(64,groundy - 64, vault.player_sprite_idle,
+    my_player = new player(64,groundy - 250, vault.player_sprite_idle,
                            vault.player_sprite_run,
                            vault.player_sprite_jump,
                            vault.player_jump);
@@ -23,7 +23,8 @@ Game::Game(int width, int height) {
     lvl_manager = new levelmanager(vault, groundy);
     game_ui = new UI(screen_width, screen_height);
 
-    camera.target = my_player->position;
+    camera.target.x += (my_player->position.x - camera.target.x) * 0.1f;
+    camera.target.y += (my_player->position.y - camera.target.y) * 0.1f;
     camera.offset = {(float)screen_width / 3, (float)screen_height * 0.7f};
     camera.zoom = 1.0f;
 }
@@ -32,10 +33,11 @@ void Game::reset() {
     gameover = false;
     collected_coins = 0;
     my_player->yspeed = 0;
+    my_player->on_ladder = false;
     my_player->hurt_timer = 0;
     my_player->is_hurt = false;
     my_player->lives = 3;
-    my_player->position = {64, groundy - 300};  
+    my_player->position = {64, groundy - 250};  
     lvl_manager->reset_current_level();
 }
 
@@ -104,7 +106,7 @@ void Game::update() {
         // then for void death:
         if(my_player->position.y > groundy + 300 && !my_player->is_hurt){
             my_player->lives--;
-            my_player->position = {64, groundy - 300};
+            my_player->position = {64, groundy - 250};
             my_player->yspeed = 0;
             my_player->hurt_timer = 120; // 2 seconds of invincibility
             if(my_player->lives <= 0) gameover = true;
@@ -123,17 +125,21 @@ void Game::update() {
 
         my_player->on_ladder = false;
         for(auto& rect : current_lvl->ladders){
-            if(CheckCollisionRecs(player_hitbox, rect)){
-                my_player->on_ladder = true;
-                my_player->direction = 1;
-                if(IsKeyPressed(KEY_SPACE)){
-                    my_player->yspeed = -25;
-                    my_player->position.x += my_player->direction * 150;
+            Rectangle expanded = {
+                rect.x - 10,
+                rect.y,
+                rect.width + 20,
+                rect.height
+            };
+            
+            if(CheckCollisionRecs(player_hitbox, expanded)){
+                if(IsKeyDown(KEY_W) || IsKeyDown(KEY_UP) || IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)){
+                    my_player->on_ladder = true;
+                    my_player->yspeed = 0;
                 }
                 break;
             }
         }
-
         my_player->update(groundy);
 
         player_hitbox = {my_player->position.x, my_player->position.y, my_player->width, my_player->height};
@@ -147,12 +153,11 @@ void Game::update() {
                 obs->height
             };
 
-            // If it's a spike, we make the hitbox smaller so it's fair to the player
-            if (obs->the_type == spike) {
-                obstacle_hitbox.x += obs->width * 0.2f;
-                obstacle_hitbox.width *= 0.6f;
-                obstacle_hitbox.y += obs->height * 0.5f;
-                obstacle_hitbox.height *= 0.5f;
+            if(obs->the_type == spike){
+                obstacle_hitbox.x = obs->position.x;
+                obstacle_hitbox.y = obs->position.y;
+                obstacle_hitbox.width = obs->width;
+                obstacle_hitbox.height = obs->height;
             }
 
             if (!CheckCollisionRecs(player_hitbox, obstacle_hitbox))
@@ -160,9 +165,12 @@ void Game::update() {
 
             if(obs->is_harmful && !my_player->is_hurt){
                 my_player->lives--;
-                my_player->position = {64, groundy - 64};
+
+                my_player->position = {64, groundy - 250};
                 my_player->yspeed = 0;
+
                 my_player->hurt_timer = 120;
+                my_player->is_hurt = true; 
                 if(my_player->lives <= 0) gameover = true;
                 continue;
             }
@@ -197,7 +205,7 @@ void Game::update() {
             
             float prev_bottom = prev_pos.y + my_player->height;
             
-            if(my_player->yspeed >= 0 && prev_bottom <= rect.y + 2){
+            if(my_player->yspeed >= 0 && prev_bottom <= rect.y + 16){
                 my_player->position.y = rect.y - my_player->height;
                 my_player->yspeed = 0;
                 my_player->on_ground = true;
@@ -217,7 +225,12 @@ void Game::update() {
         if(CheckCollisionRecs(player_hitbox, current_lvl->goal)){
             if(lvl_manager->current_level < 8){
                 lvl_manager->current_level++;
-                reset();
+                my_player->yspeed = 0;
+                my_player->on_ladder = false;
+                my_player->hurt_timer = 0;
+                my_player->is_hurt = false;
+                my_player->position = {64, groundy - 300};
+                lvl_manager->reset_current_level();
             } else {
                 // game won - for now just go to menu
                 current_screen = MENU;

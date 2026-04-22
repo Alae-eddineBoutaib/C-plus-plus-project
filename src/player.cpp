@@ -1,11 +1,12 @@
 #include "../include/player.hpp"
 
-player::player(float start_x, float start_y, Texture2D mc_sprite_idle, Texture2D mc_sprite_run, Texture2D mc_sprite_jump, Sound jump_sound){
+player::player(float start_x, float start_y, Texture2D mc_sprite_idle, Texture2D mc_sprite_run, Texture2D mc_sprite_jump, Sound jumpsound){
     scale = 1.0f;
     position = {start_x, start_y};
     is_hurt = false;
     hurt_timer = 0;
 
+    jump_sound = jumpsound;
     sprite_idle = mc_sprite_idle;
     sprite_run = mc_sprite_run;
     sprite_jump = mc_sprite_jump;
@@ -52,6 +53,7 @@ void player::update(float groundy){
     if(IsKeyPressed(KEY_SPACE) && on_ground){
         yspeed = -18;
         on_ground = false;
+        PlaySound(jump_sound);
     }
 
     on_ground = false;

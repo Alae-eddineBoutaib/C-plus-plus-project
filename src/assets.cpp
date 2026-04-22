@@ -10,7 +10,7 @@ assets_manager::assets_manager() {
     ladder = LoadTexture("assets/images/objects/Ladder1.png");
     player_jump = LoadSound("assets/sounds/jump.mp3");
     coin_pickup = LoadSound("assets/sounds/coin pick up.mp3");
-    
+    goal = LoadTexture("assets/images/objects/goal.png");
 }
 
 assets_manager::~assets_manager() {
@@ -20,6 +20,7 @@ assets_manager::~assets_manager() {
     UnloadTexture(spike);
     UnloadTexture(grass);
     UnloadTexture(ladder);
+    UnloadTexture(goal);
     UnloadTexture(box);
     UnloadSound(player_jump);
     UnloadSound(coin_pickup);

@@ -37,7 +37,7 @@ struct player
     float gravity;
     
     //methods
-    player(float start_x, float start_y, Texture2D mc_sprite_idle, Texture2D mc_sprite_jump, Texture2D mc_sprite_run, Sound jump_sound);
+    player(float start_x, float start_y, Texture2D mc_sprite_idle, Texture2D mc_sprite_jump, Texture2D mc_sprite_run, Sound jumpsound);
     ~player();
     void update_animation();
     void update(float groundy);

@@ -11,6 +11,7 @@ struct assets_manager
     Texture2D spike;
     Texture2D box;
     Texture2D ladder;
+    Texture2D goal;
 
     // Sounds
     Sound player_walk;

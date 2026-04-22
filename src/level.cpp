@@ -26,11 +26,16 @@ void level::draw(){
         DrawTexturePro(
             terrain_texture,
             {0, 0, (float)terrain_texture.width, (float)terrain_texture.height},
-            rect,
+            {(float)(int)rect.x, (float)(int)rect.y, rect.width + 1, rect.height + 1},
             {0, 0}, 0.0f, WHITE
         );
     }
-    DrawRectangle(goal.x, goal.y, goal.width, goal.height, GREEN);
+    DrawTexturePro(
+        goal_texture,
+        {0, 0, (float)goal_texture.width, (float)goal_texture.height},
+        {goal.x, goal.y, goal.width, goal.height},
+        {0, 0}, 0.0f, WHITE
+    );
 }
 
 //update logic
@@ -46,6 +51,7 @@ void level::load_from_grid(const char** map_data, int rows, int cols, float tile
     terrain_texture = vault.grass;
     coin_sound = vault.coin_pickup;
     spike_texture = vault.spike;
+    goal_texture = vault.goal;
     groundy = ground_y;
 
     for(auto obs : obstacles) delete obs;
@@ -73,10 +79,9 @@ void level::load_from_grid(const char** map_data, int rows, int cols, float tile
             } else if(tile == 'C'){
                 coins.push_back(new coin(spawn_x, spawn_y, 15.0f, 1, coin_sound));
             } else if(tile == 'L'){
-                ladders.push_back({spawn_x, spawn_y, 32, 32});
+                ladders.push_back({spawn_x, spawn_y - tile_size * 2, tile_size, tile_size});
             } else if(tile == 'G'){
-                goal = {spawn_x, spawn_y, 32, 192};
-                printf("Goal placed at x=%.0f y=%.0f\n", spawn_x, spawn_y);
+                goal = {spawn_x, spawn_y - 32, 48, 96};
             }
         }
     }

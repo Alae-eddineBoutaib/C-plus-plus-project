@@ -17,6 +17,7 @@ struct level {
     Texture2D spike_texture;
     vector<Rectangle> terrain_tiles;
     Texture2D terrain_texture;
+    Texture2D goal_texture;
     Sound coin_sound;
     float groundy;
 

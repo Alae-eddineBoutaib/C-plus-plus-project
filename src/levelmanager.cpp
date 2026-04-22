@@ -1,146 +1,130 @@
 #include "../include/levelmanager.hpp"
 
-levelmanager::levelmanager(assets_manager& vault,float groundy){
+levelmanager::levelmanager(assets_manager& vault, float groundy){
     current_level = 0;
 
-    // ==================================================
-    // LEVEL 1 SETUP
-    // ==================================================
+    // LEVEL 1 - gentle, no spikes, wide platforms, 2 moving pads
     level* level1 = new level;
     levels.push_back(level1);
-    //LEVEL MAP
     const char* level1_map[] = {
-        "................................................................................................G",
-        "................................................................................................T",
-        "..............C.......C..............................................C.........................TT",
-        "....TTTT......TTTT....TTTT....................TTTT.........TTTT.......TTTT..................TTTT..",
-        "TTTTT....MM..........M.....TTTTTTT...MM...TTTTTTT...MM....TTTTT..MM...TTTTTT................TT.",
-        "TTTTT..............................................TTTTTTTTTTTTT.......TTTTTTTTTTTTTTTTTTTTTTTT.",
+        "..................................................................................................C..............G",
+        "..................................................................................................T..............T",
+        ".....C....................C.........................................C.............................T..............TTTTTT",
+        ".....TTTTTTT..........TTTTTTT..............................TTTTTTTTT.......................TTTTTTT..............TTTTTT",
+        "TTTTTTTTTTTT..........TTTTTTT....MMMMMM.............MMMMMMTTTTTTTTT.....MMMMMM.........TTTTTTT................TTTTTT",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
     };
-
     level1->load_from_grid(level1_map, 6, 80, 32, vault, groundy);
-    // ==================================================
-    // LEVEL 2 SETUP
-    // ==================================================
+
+    // LEVEL 2 - introduces spikes, wide buffers
     level* level2 = new level;
     levels.push_back(level2);
-    //LEVEL MAP
     const char* level2_map[] = {
-        ".....................................................................................................G",
-        ".....................................................................................................T",
-        "...............C.........C.......................................C.............................C....TT",
-        "....TTTT.......TTTT......TTTT...............TTTT.............TTTT.....TTTT.....................TTTT..",
-        "TTTTT..MM....S.....S....M.....TTTTTTT..MM..TTTTT..MM.......TTTTT...S...S...TTTTTTT..MM......TTTTT.",
-        "TTTTT...............................................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+        "......................................................................................................C..............G",
+        "......................................................................................................T.............TT",
+        ".....C....................C..................C..............................C.............................T........TTTTTT",
+        ".....TTTTTTT..........TTTTTTT........TTTTTTTTT.......MM...........TTTTTTTTT.......................TTTTTTT.........TTTTTT",
+        "TTTTTTTTTTTT..........TTTTTTT........TTTTTTTTT....S.....S..........TTTTTTTTT.....MMMMMM.........TTTTTTT.........TTTTTT",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
     };
-
     level2->load_from_grid(level2_map, 6, 80, 32, vault, groundy);
-    // ==================================================
-    // LEVEL 3 SETUP
-    // ==================================================
+
+    // LEVEL 3 - more spikes, same gap rules
     level* level3 = new level;
     levels.push_back(level3);
-    //LEVEL MAP
     const char* level3_map[] = {
-        "........................................................................................................G",
-        "........................................................................................................T",
-        ".............C......C.........C...................C.............C..............C....................C..TT",
-        "...TTTT......TTT....TTT.......TTTT........TTTT...TTT...........TTT............TTT..................TTTT.",
-        "TTTT...MM..S.....SS....S.MM..TTTTT.MM..TTTTTT...TTT..MM.....STTTS.MM.......STTTSS..MM.........TTTTT..",
-        "TTTT..............................................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+        "..........................................................................................................C..............G",
+        "..........................................................................................................T.............TT",
+        "........C.................C..................C......................................C................................TTTTT........TTTTTT",
+        ".....TTTTTTT..........TTTTTTT........TTTTTTTTT......MM..............TTTTTTTTT.....TTTTTTT.....MM...................TTTTTTTTT............TTTTTT",
+        "TTTTTTTTTTTT..........TTTTTTT........TTTTTTTTT....S.....S...............TTTTTTTTT...TTTTTTT.S.....S...........TTTTTTTTT................TTTTTT",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
     };
-
     level3->load_from_grid(level3_map, 6, 80, 32, vault, groundy);
-    // ==================================================
-    // LEVEL 4 SETUP
-    // ==================================================
+
+    // LEVEL 4 - introduces ladders, upper floor reachable
     level* level4 = new level;
     levels.push_back(level4);
     const char* level4_map[] = {
-        "..............C..................................C.................................C....................G",
-        "..............T..................................T.................................T....................T",
-        "....TTTT......T....L.....TTTT.....L..............T....L....TTTT..............TTTT.L.................TT",
-        "....TTTT......T....L....S...S.....L....TTTT.....TT....L....TTTT...TTTT.......TTTT.L..............TTTT.",
-        "TTTTTTTTT.MM..T....L.TTTTTTTTT...L..TTTTTT...TTTT.MM.L..TTTTTTTTTTTTT.MM...TTTTT.L.MM..........TTTT.",
-        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+        ".....C.......................C................................C...............................C....................G",
+        ".......TTTTTTT.......MM........TTTTTTT.....MM....MM....MM.....TTTTTTT.....MM.........MM......TTTTTTT.........TTTTTT",
+        ".....LL......................LL............S...........S....LL.............................LL..............LL",
+        ".....LL......................LL.............................LL.............................LL..............LL",
+        ".....LL......................LL..........MM.................LL.............................LL..............LL",
+        "TTTTTTTTTTT..........TTTTTTTTTT........S.....S...........TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.......TTTTTTTTTTTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
     };
+    level4->load_from_grid(level4_map, 7, 80, 32, vault, groundy);
 
-    level4->load_from_grid(level4_map, 6, 80, 32, vault, groundy);
-    // ==================================================
-    // LEVEL 5 SETUP
-    // ==================================================
+    // LEVEL 5 - ladders + spikes combination
     level* level5 = new level;
     levels.push_back(level5);
     const char* level5_map[] = {
-        "..C.....................................C.....................................C..............................G",
-        "..T.....................................T.....................................T..............................T",
-        "..T....L....TTTT......L.................T....L....TTT.........L...............T...L...TTTT.................TT",
-        "..T....L....TTTT..S...L....TTTT.....S..T....L....TTT...TTTT..L....TTTT......T...L...TTTT...S.S..TTTT....TTTT",
-        "TTTTT.MM.L..TTTT..S.MMLL.TTTTTT....STTTTT.MM.L..TTTTTTTTTT.MM.L.TTTTTT.MM.TT.ML...TTTTTSSTTTTTTTTTT..TTTT.",
-        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+        ".....C.......................C................................C.............................C....................G",
+        ".......TTTTTTT....MM......MM...TTTTTTT......MM.........MM.....TTTTTTT........................TTTTTTT..MM....TTTTTT",
+        ".....LL......................LL.............................LL.............................LL..........S...LL",
+        ".....LL......................LL.............................LL.............................LL..............LL",
+        ".....LL......................LL......MM.....................LL.............................LL..............LL",
+        "TTTTTTTTTTT..........TTTTTTTTTT....S.....S...............TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.........TTTTTTTTTTTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
     };
+    level5->load_from_grid(level5_map, 7, 80, 32, vault, groundy);
 
-    level5->load_from_grid(level5_map, 6, 80, 32, vault, groundy);
-    // ==================================================
-    // LEVEL 6 SETUP
-    // ==================================================
+    // LEVEL 6 - harder spikes, longer gaps
     level* level6 = new level;
     levels.push_back(level6);
     const char* level6_map[] = {
-        "C.......................................C.....................................C...................................G",
-        "T.......................................T.....................................T...................................T",
-        "T..L....TTTT......L....TTT..L...........T....L....TTT.........L....TTT......T...L....TTT........L....TTT......TT",
-        "T..L....TTTT..S...L....TTT..L..TTTT.S..T....L....TTT...TTTT..L....TTT.S...T...L....TTT..S.S...L....TTTT....TTTT",
-        "T.ML..STTTTTSS..MMLL.STTTTML.TTTTTTSSTTTT.MM.L.STTTTTTTTTTT.ML.STTTTTSS.TTTT.ML.STTTTTSSTTTTTTTTTT.ML...STTTT.",
-        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+        ".....C.......................C................................C.............................C....................G",
+        ".......TTTTTTT.................TTTTTTT.....MM......MM......TTTTTTT......MM...........MM......TTTTTTT.........TTTTTT",
+        ".....LL......................LL................SS........LL................................LL..............LL",
+        ".....LL......................LL..........................LL................................LL..............LL",
+        ".....LL......................LL..........................LL................................LL..............LL",
+        "TTTTTTTTTTT.......TTTTTTTTTTTTT........................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...............TTTTTTTTTTTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
     };
+    level6->load_from_grid(level6_map, 7, 80, 32, vault, groundy);
 
-    level6->load_from_grid(level6_map, 6, 80, 32, vault, groundy);
-    // ==================================================
-    // LEVEL 7 SETUP
-    // ==================================================
+    // LEVEL 7 - tight gaps, multiple ladders
     level* level7 = new level;
     levels.push_back(level7);
     const char* level7_map[] = {
-        "C..............C.......................C............................C.............................C......................G",
-        "T..............T.......................T............................T.............................T......................T",
-        "T.L..TTTT.L....T...L...TTT.L..........T....L...TTT......L..........T....L....TTT......L.........T...L...TTTT.........TT",
-        "T.L..TTTT.L.S..T...L...TTT.L..TTTT....T.S..L...TTT.TTTT.L.S.......T.S..L....TTT.TTTT.L.S......T...L...TTTT..S.S...TTTT",
-        "T.ML.TTTTTLSSTTTTML.STTTTTML.TTTTTTSSTTTTTML.STTTTTTTTTTTML.SSTTTTTML.STTTTTTTTTTTTTML.SS.TTTTTTML.STTTTTTSSTTTTTTTTTT.",
-        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+        ".....C.................C.......................C................................C................................C..G",
+        ".......TTTTTTT.....MM....TTTTTTT.......MM........TTTTTTT......MM.......MM.......TTTTTTT........................TTTTTTTTTTTTT",
+        ".....LL................LL......................LL.............................LL.............................LL.......LL",
+        ".....LL................LL.............SSS......LL.............................LL.............................LL.......LL",
+        ".....LL................LL......................LL.............................LL.............................LL.......LL",
+        "TTTTTTTTTTT....TTTTTTTTTT.....................TTTTTTTT......S.......S......TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.......TTTTTTTTTTTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
     };
+    level7->load_from_grid(level7_map, 7, 80, 32, vault, groundy);
 
-    level7->load_from_grid(level7_map, 6, 80, 32, vault, groundy);
-    // ==================================================
-    // LEVEL 8 SETUP
-    // ==================================================
+    // LEVEL 8 - very hard, lots of spikes
     level* level8 = new level;
     levels.push_back(level8);
     const char* level8_map[] = {
-        "C...C..............C.....C.......................C....C..........................C....C...........................C.....G",
-        "T...T..............T.....T.......................T....T..........................T....T...........................T.....T",
-        "T.L.T.L..TTTT.L....T..L..T...L...TTT.L..........TL...T....L...TTT......L......TL....T....L....TTT......L.......TL...TT",
-        "T.L.T.L..TTTT.LS...T..L..T...L...TTT.L..TTTT....TL.S.T.S..L...TTT.TTTT.L.S...TL.S..T.S..L....TTT.TTTT.L.S....TL..TTTT",
-        "TMLTTTML.TTTTTLSSTTTTMLTTML.STTTTTML.TTTTTTSSTTTTTMLSTTTTTML.STTTTTTTTTTTML.SSTTTTMTSTTTTTML.STTTTTTTTTTTML.SS.TTTTTTT.",
-        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+        ".....C.................C.......................C................................C.................................C..G",
+        ".......TTTTTTT...........TTTTTTT....MM.....MM....TTTTTTT.....MM.......MM........TTTTTTT....MM.....MM....MM.....TTTTTTTTTTTTT",
+        ".....LL................LL......................LL.............................LL..........SSS.......SSS......LL.......LL",
+        ".....LL................LL......................LL.............................LL.............................LL.......LL",
+        ".....LL................LL......................LL.............................LL.............................LL.......LL",
+        "TTTTTTTTTTT....TTTTTTTT.....SS.......SS.......TTTTTTTT.....SS.......SS.......TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.......TTTTTTTTTTTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
     };
+    level8->load_from_grid(level8_map, 7, 80, 32, vault, groundy);
 
-    level8->load_from_grid(level8_map, 6, 80, 32, vault, groundy);
-    // ==================================================
-    // LEVEL 9 SETUP
-    // ==================================================
+    // LEVEL 9 - brutal final level
     level* level9 = new level;
     levels.push_back(level9);
     const char* level9_map[] = {
-        "C.C...C..............C..C.....C.......................C...C..C..........................C..C...C.................C.....G",
-        "T.T...T..............T..T.....T.......................T...T..T..........................T..T...T.................T.....T",
-        "T.TL..TL.TTTT.L......T.TL.....T...L...TTT.L..........TL..TL..T....L...TTT......L......TL.TL..T....L....TTT....TL....TT",
-        "T.TL..TL.TTTT.LS.S...T.TL..S..T.S.L...TTT.L..TTTT...TL.STL.ST.S..L...TTT.TTTT.L.SS..TL.TLS.T.SS.L....TTT....TL..STTTT",
-        "TTMLSSTML.TTTTTLSSTTTTTML.SSTTTTML.STTTTTML.TTTTTTSSTTTTML.TTTML.STTTTTTTTTTTML.SSTTTTML.TTMLSSTTTTTML.STTTTTTTML.STTTT.",
-        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+        "..........C.................C.......................C..........................C..................................C...G",
+        ".......TTTTTTT....MM.....TTTTTTT.......MM........TTTTTTT......MM......MM........TTTTTTT......MM.......MM.......TTTTTTTTTTTTT",
+        ".....LL................LL..........SSS...SSS...LL.............................LL............SSS.......SSS....LL.......LL",
+        ".....LL................LL......................LL.............SSS.....SSS.....LL.............................LL.......LL",
+        ".....LL................LL......................LL.............................LL.............................LL.......LL",
+        "TTTTTTTTTTT....TTTTTTTTTT............SSS......TTTTTTTT.......................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT....TTTTTTTTTTTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
     };
-
-    level9->load_from_grid(level9_map, 6, 80, 32, vault, groundy);
+    level9->load_from_grid(level9_map, 7, 80, 32, vault, groundy);
 }
 
 //Destructor logic
