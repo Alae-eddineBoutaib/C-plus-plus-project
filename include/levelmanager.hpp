@@ -18,4 +18,3 @@ struct levelmanager{
     void reset_current_level();
     level* get_current_level();
 };
-
