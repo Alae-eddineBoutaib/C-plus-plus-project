@@ -209,8 +209,16 @@ void UI::draw_transition_screen(const std::string& title,
     DrawRectangleLinesEx(hero_panel, 2.0f, Fade(accent, 0.75f));
 
     draw_text_shadow(title, 110, 195, 48, RAYWHITE);
-    draw_text_shadow(subtitle, 110, 265, 28, Fade(RAYWHITE, 0.88f));
-    draw_text_shadow("Choose what to do next.", 110, 320, 24, Fade(RAYWHITE, 0.74f));
+    
+    // Wrap subtitle if it's too long
+    auto subtitle_lines = wrap_text(subtitle, 28, 470);
+    int subtitle_y = 265;
+    for (const auto& line : subtitle_lines) {
+        draw_text_shadow(line, 110, subtitle_y, 28, Fade(RAYWHITE, 0.88f));
+        subtitle_y += 30;
+    }
+    
+    draw_text_shadow("Choose what to do next.", 110, subtitle_y + 15, 24, Fade(RAYWHITE, 0.74f));
 
     draw_option_button({110.0f, 390.0f, 180.0f, 58.0f}, continue_label, selected_option == 0, accent);
     draw_option_button({310.0f, 390.0f, 180.0f, 58.0f}, "Try Again", selected_option == 1, accent);
