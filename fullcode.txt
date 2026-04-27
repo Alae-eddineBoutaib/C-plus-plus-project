@@ -1,0 +1,1753 @@
+README.md:
+<code>
+# C-project
+</code>
+
+src\assets.cpp:
+<code>
+#include "../include/assets.hpp"
+
+assets_manager::assets_manager() {
+    player_sprite_idle = LoadTexture("assets/images/Swordsman/Idle.png");
+    player_sprite_run = LoadTexture("assets/images/Swordsman/Run.png");
+    player_sprite_jump = LoadTexture("assets/images/Swordsman/Jump.png");
+    spike = LoadTexture("assets/images/objects/spikes.png");
+    grass = LoadTexture("assets/images/tileset/Tile_01.png");
+    box = LoadTexture("assets/images/objects/box.png");
+    ladder = LoadTexture("assets/images/objects/Ladder1.png");
+    player_jump = LoadSound("assets/sounds/jump.mp3");
+    coin_pickup = LoadSound("assets/sounds/coin pick up.mp3");
+    menu_switch = LoadSound("assets/sounds/button menu switch.mp3");
+    SetSoundVolume(menu_switch, 0.55f);
+    ui_music = LoadMusicStream("assets/sounds/Intro Pixel Art 8 bit--Laugh.mp3");
+    SetMusicVolume(ui_music, 0.35f);
+    gameplay_music_1 = LoadMusicStream("assets/sounds/Kubbi - Digestive biscuit  NO COPYRIGHT 8-bit Music.mp3");
+    gameplay_music_2 = LoadMusicStream("assets/sounds/Joshua McLean - Mountain Trials  NO COPYRIGHT 8-bit Music.mp3");
+    gameplay_music_3 = LoadMusicStream("assets/sounds/Eric Skiff - A Night Of Dizzy Spells  NO COPYRIGHT 8-bit Music  Background.mp3");
+    gameplay_music_4 = LoadMusicStream("assets/sounds/8-bit RPG Music  Boss Battle.mp3");
+    SetMusicVolume(gameplay_music_1, 0.40f);
+    SetMusicVolume(gameplay_music_2, 0.40f);
+    SetMusicVolume(gameplay_music_3, 0.40f);
+    SetMusicVolume(gameplay_music_4, 0.40f);
+    goal = LoadTexture("assets/images/objects/goal.png");
+    background1 = LoadTexture("assets/images/backgound1/1.png");
+    background2 = LoadTexture("assets/images/background2/1.png");
+}
+
+assets_manager::~assets_manager() {
+    UnloadTexture(player_sprite_idle);
+    UnloadTexture(player_sprite_run);
+    UnloadTexture(player_sprite_jump);
+    UnloadTexture(spike);
+    UnloadTexture(grass);
+    UnloadTexture(ladder);
+    UnloadTexture(goal);
+    UnloadTexture(box);
+    UnloadTexture(background1);
+    UnloadTexture(background2);
+    UnloadSound(player_jump);
+    UnloadSound(coin_pickup);
+    UnloadSound(menu_switch);
+    UnloadMusicStream(ui_music);
+    UnloadMusicStream(gameplay_music_1);
+    UnloadMusicStream(gameplay_music_2);
+    UnloadMusicStream(gameplay_music_3);
+    UnloadMusicStream(gameplay_music_4);
+}
+
+</code>
+
+src\coin.cpp:
+<code>
+#include "../include/coin.hpp"
+
+#include <cmath>
+
+coin::coin(float x, float y, float coin_radius, int coin_value, Sound coin_pickup_sound)
+{
+    position = {x, y};
+    radius = coin_radius;
+    base_y = y;
+    bob_offset = 0.0f;
+    bob_speed = 3.0f;
+    bob_amplitude = 8.0f;
+    value = coin_value;
+    collected = false;
+    pickup_sound = coin_pickup_sound;
+}
+
+void coin::update()
+{
+    if (collected)
+    {
+        return;
+    }
+
+    bob_offset += GetFrameTime() * bob_speed;
+    position.y = base_y + std::sin(bob_offset) * bob_amplitude;
+}
+
+void coin::Draw() const
+{
+    if (collected)
+    {
+        return;
+    }
+
+    DrawCircleV(position, radius, GOLD);
+    DrawCircleLines((int)position.x, (int)position.y, radius, ORANGE);
+    DrawCircleV(position, radius * 0.45f, Fade(YELLOW, 0.85f));
+    DrawRectangleRounded(
+        {position.x - radius * 0.12f, position.y - radius * 0.55f, radius * 0.24f, radius * 1.1f},
+        0.4f,
+        4,
+        Color{207, 140, 30, 255});
+}
+
+bool coin::collect(const Rectangle& target)
+{
+    if (collected)
+    {
+        return false;
+    }
+
+    if (CheckCollisionRecs(get_hitbox(), target))
+    {
+        collected = true;
+        if (pickup_sound.frameCount > 0)
+        {
+            PlaySound(pickup_sound);
+        }
+        return true;
+    }
+
+    return false;
+}
+
+void coin::reset(float x, float y)
+{
+    position = {x, y};
+    base_y = y;
+    bob_offset = 0.0f;
+    collected = false;
+}
+
+Rectangle coin::get_hitbox() const
+{
+    return {position.x - radius, position.y - radius, radius * 2.0f, radius * 2.0f};
+}
+
+</code>
+
+src\game.cpp:
+<code>
+#include "../include/game.hpp"
+#include "../include/levelmanager.hpp"
+
+namespace {
+struct ChapterMeta {
+    const char* title;
+    const char* story;
+};
+
+const ChapterMeta GAME_CHAPTERS[3] = {
+    {
+        "Chapter I - Whispering Woods",
+        "The journey begins beneath ancient trees where the hero follows a fading trail. Every jump through the forest reveals that something dark has started to wake beyond the roots."
+    },
+    {
+        "Chapter II - Iron Ascent",
+        "Past the forest waits a ruined stronghold of ladders, traps, and narrow ledges. The climb is no longer about discovery, but survival against a fortress that refuses to fall quietly."
+    },
+    {
+        "Chapter III - Crown of Shadows",
+        "At the summit, the path turns cruel and every mistake carries weight. The last chapter tests whether the hero can cross the shadowed crown and reach the gate before hope runs out."
+    }
+};
+}
+
+Game::Game(int width, int height) {
+    screen_width = width;
+    screen_height = height;
+    should_exit = false;
+
+    gameover = false;
+    collected_coins = 0;
+
+    selected_menu_option = 0;
+    selected_chapter_option = 0;
+    selected_level_option = 0;
+    selected_transition_option = 0;
+    current_gameplay_track = -1;
+
+    groundy = screen_height - 100;
+    current_screen = MENU;
+
+    my_player = new player(64,groundy - 250, vault.player_sprite_idle,
+                           vault.player_sprite_run,
+                           vault.player_sprite_jump,
+                           vault.player_jump);
+
+    lvl_manager = new levelmanager(vault, groundy);
+    game_ui = new UI(screen_width, screen_height);
+
+    camera.target.x += (my_player->position.x - camera.target.x) * 0.1f;
+    camera.target.y += (my_player->position.y - camera.target.y) * 0.1f;
+    camera.offset = {(float)screen_width / 3, (float)screen_height * 0.7f};
+    camera.zoom = 1.0f;
+}
+
+void Game::reset() {
+    gameover = false;
+    collected_coins = 0;
+    my_player->yspeed = 0;
+    my_player->on_ladder = false;
+    my_player->hurt_timer = 0;
+    my_player->is_hurt = false;
+    my_player->lives = 3;
+    my_player->position = {64, groundy - 250};  
+    lvl_manager->reset_current_level();
+}
+
+void Game::update() {
+    if (WindowShouldClose()) {
+        should_exit = true;
+    }
+
+    UpdateMusicStream(vault.ui_music);
+
+    bool ui_screen_active = current_screen == MENU || current_screen == STAGES || current_screen == KEYBINDS ||
+                            current_screen == LEVEL_CLEAR || current_screen == CHAPTER_CLEAR || current_screen == GAME_COMPLETE;
+    if (ui_screen_active) {
+        stop_gameplay_music();
+        if (!IsMusicStreamPlaying(vault.ui_music)) {
+            PlayMusicStream(vault.ui_music);
+        }
+    } else if (IsMusicStreamPlaying(vault.ui_music)) {
+        StopMusicStream(vault.ui_music);
+    }
+
+    if (current_screen == GAMEPLAY) {
+        Music* gameplay_tracks[] = {
+            &vault.gameplay_music_1,
+            &vault.gameplay_music_2,
+            &vault.gameplay_music_3,
+            &vault.gameplay_music_4
+        };
+
+        if (current_gameplay_track >= 0) {
+            UpdateMusicStream(*gameplay_tracks[current_gameplay_track]);
+        }
+
+        if (current_gameplay_track < 0 || !IsMusicStreamPlaying(*gameplay_tracks[current_gameplay_track])) {
+            play_random_gameplay_music();
+        }
+    }
+
+    if (current_screen == MENU) {
+        if (IsKeyPressed(KEY_DOWN)) {
+            selected_menu_option = (selected_menu_option + 1) % 4;
+            PlaySound(vault.menu_switch);
+        }
+
+        if (IsKeyPressed(KEY_UP)) {
+            selected_menu_option = (selected_menu_option + 3) % 4;
+            PlaySound(vault.menu_switch);
+        }
+
+        if (IsKeyPressed(KEY_ENTER)) {
+            if (selected_menu_option == 0) {
+                reset();
+                current_screen = GAMEPLAY;
+            } else if (selected_menu_option == 1) {
+                current_screen = STAGES;
+            } else if (selected_menu_option == 2) {
+                current_screen = KEYBINDS;
+            } else {
+                should_exit = true;
+            }
+        }
+    }
+    
+    else if (current_screen == STAGES) {
+        if (IsKeyPressed(KEY_DOWN)) {
+            selected_chapter_option = (selected_chapter_option + 1) % 3;
+            PlaySound(vault.menu_switch);
+        }
+
+        if (IsKeyPressed(KEY_UP)) {
+            selected_chapter_option = (selected_chapter_option + 2) % 3;
+            PlaySound(vault.menu_switch);
+        }
+
+        if (IsKeyPressed(KEY_D)) {
+            selected_level_option = (selected_level_option + 1) % 3;
+            PlaySound(vault.menu_switch);
+        }
+
+        if (IsKeyPressed(KEY_A)) {
+            selected_level_option = (selected_level_option + 2) % 3;
+            PlaySound(vault.menu_switch);
+        }
+
+        if (IsKeyPressed(KEY_ENTER)) {
+            lvl_manager->current_level = selected_chapter_option * 3 + selected_level_option;
+            reset();
+            current_screen = GAMEPLAY;
+        }
+
+        if (IsKeyPressed(KEY_ESCAPE)) {
+            current_screen = MENU;
+        }
+    }
+    
+    else if (current_screen == KEYBINDS) {
+        if (IsKeyPressed(KEY_ESCAPE)) {
+            current_screen = MENU;
+        }
+    }
+
+    else if (current_screen == LEVEL_CLEAR) {
+        handle_transition_input();
+    }
+
+    else if (current_screen == CHAPTER_CLEAR) {
+        handle_transition_input();
+    }
+
+    else if (current_screen == GAME_COMPLETE) {
+        handle_transition_input();
+    }
+
+    else if (current_screen == GAMEPLAY) {
+        if (gameover) {
+            if (IsKeyPressed(KEY_R)) {
+                reset();
+            }
+            return;
+        }
+
+        if(my_player->hurt_timer > 0) my_player->hurt_timer--;
+        if(my_player->hurt_timer > 0) my_player->is_hurt = true;
+        else my_player->is_hurt = false;
+
+        // then for void death:
+        if(my_player->position.y > groundy + 300 && !my_player->is_hurt){
+            my_player->lives--;
+            my_player->position = {64, groundy - 250};
+            my_player->yspeed = 0;
+            my_player->hurt_timer = 120; // 2 seconds of invincibility
+            if(my_player->lives <= 0) gameover = true;
+        }
+
+        Vector2 prev_pos = my_player->position;
+
+        level* current_lvl = lvl_manager->get_current_level();
+
+        Rectangle player_hitbox = {
+            my_player->position.x,
+            my_player->position.y,
+            my_player->width,
+            my_player->height
+        };
+
+        my_player->on_ladder = false;
+        for(auto& rect : current_lvl->ladders){
+            Rectangle expanded = {
+                rect.x - 10,
+                rect.y,
+                rect.width + 20,
+                rect.height
+            };
+            
+            if(CheckCollisionRecs(player_hitbox, expanded)){
+                if(IsKeyDown(KEY_W) || IsKeyDown(KEY_UP) || IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)){
+                    my_player->on_ladder = true;
+                    my_player->yspeed = 0;
+                }
+                break;
+            }
+        }
+        my_player->update(groundy);
+
+        player_hitbox = {my_player->position.x, my_player->position.y, my_player->width, my_player->height};
+
+        for (auto obs : current_lvl->obstacles) {
+            // 1. Get the exact hitbox. NO SHRINKING for solid tiles!
+            Rectangle obstacle_hitbox = {
+                obs->position.x,
+                obs->position.y,
+                obs->width,
+                obs->height
+            };
+
+            if(obs->the_type == spike){
+                obstacle_hitbox.x = obs->position.x;
+                obstacle_hitbox.y = obs->position.y;
+                obstacle_hitbox.width = obs->width;
+                obstacle_hitbox.height = obs->height;
+            }
+
+            if (!CheckCollisionRecs(player_hitbox, obstacle_hitbox))
+                continue;
+
+            if(obs->is_harmful && !my_player->is_hurt){
+                my_player->lives--;
+
+                my_player->position = {64, groundy - 250};
+                my_player->yspeed = 0;
+
+                my_player->hurt_timer = 120;
+                my_player->is_hurt = true; 
+                if(my_player->lives <= 0) gameover = true;
+                continue;
+            }
+
+            float prev_bottom = prev_pos.y + my_player->height;
+            float prev_right = prev_pos.x + my_player->width;
+
+            if (my_player->yspeed >= 0 && prev_bottom <= obstacle_hitbox.y) {
+                my_player->position.y = obstacle_hitbox.y - my_player->height;
+                my_player->yspeed = 0;
+                my_player->on_ground = true;
+
+                if (obs->is_moving) {
+                    my_player->position.x += obs->speed * obs->direction;
+                }
+
+            } else if (my_player->yspeed < 0 && prev_pos.y >= obstacle_hitbox.y + obstacle_hitbox.height) {
+                my_player->position.y = obstacle_hitbox.y + obstacle_hitbox.height;
+                my_player->yspeed = 0;
+            } else if (prev_right <= obstacle_hitbox.x) {
+                my_player->position.x = obstacle_hitbox.x - my_player->width;
+            } else if (prev_pos.x >= obstacle_hitbox.x + obstacle_hitbox.width) {
+                my_player->position.x = obstacle_hitbox.x + obstacle_hitbox.width;
+            }
+
+            player_hitbox.x = my_player->position.x;
+            player_hitbox.y = my_player->position.y;
+        }
+
+        for(auto& rect : current_lvl->terrain_tiles){
+            if(!CheckCollisionRecs(player_hitbox, rect)) continue;
+            
+            float prev_bottom = prev_pos.y + my_player->height;
+            
+            if(my_player->yspeed >= 0 && prev_bottom <= rect.y + 16){
+                my_player->position.y = rect.y - my_player->height;
+                my_player->yspeed = 0;
+                my_player->on_ground = true;
+            } else if(my_player->yspeed < 0 && prev_pos.y >= rect.y + rect.height){
+                my_player->position.y = rect.y + rect.height;
+                my_player->yspeed = 0;
+            } else if(prev_pos.x + my_player->width <= rect.x){
+                my_player->position.x = rect.x - my_player->width;
+            } else if(prev_pos.x >= rect.x + rect.width){
+                my_player->position.x = rect.x + rect.width;
+            }
+            
+            player_hitbox.x = my_player->position.x;
+            player_hitbox.y = my_player->position.y;
+        }
+
+        if(CheckCollisionRecs(player_hitbox, current_lvl->goal)){
+            prepare_level_transition();
+            return;
+        }
+      
+
+        lvl_manager->update();
+        camera.target = my_player->position;
+
+        for (auto c : current_lvl->coins) {
+            if (c->collect(player_hitbox)) {
+                collected_coins += c->value;
+            }
+        }
+
+        if (IsKeyPressed(KEY_ESCAPE))
+            current_screen = MENU;
+    }
+}
+
+namespace {
+void return_to_main_menu(Game& game)
+{
+    game.selected_menu_option = 0;
+    game.current_screen = MENU;
+}
+}
+
+Game::~Game(){
+    delete my_player;
+    delete lvl_manager;
+    delete game_ui;
+}
+
+void Game::play_random_gameplay_music() {
+    Music* gameplay_tracks[] = {    
+        &vault.gameplay_music_1,
+        &vault.gameplay_music_2,
+        &vault.gameplay_music_3,
+        &vault.gameplay_music_4
+    };
+
+    if (current_gameplay_track >= 0) {
+        StopMusicStream(*gameplay_tracks[current_gameplay_track]);
+    }
+
+    int next_track = GetRandomValue(0, 3);
+    if (current_gameplay_track >= 0 && next_track == current_gameplay_track) {
+        next_track = (next_track + 1) % 4;
+    }
+
+    current_gameplay_track = next_track;
+    PlayMusicStream(*gameplay_tracks[current_gameplay_track]);
+}
+
+void Game::stop_gameplay_music() {
+    Music* gameplay_tracks[] = {
+        &vault.gameplay_music_1,
+        &vault.gameplay_music_2,
+        &vault.gameplay_music_3,
+        &vault.gameplay_music_4
+    };
+
+    if (current_gameplay_track >= 0 && IsMusicStreamPlaying(*gameplay_tracks[current_gameplay_track])) {
+        StopMusicStream(*gameplay_tracks[current_gameplay_track]);
+    }
+
+    current_gameplay_track = -1;
+}
+
+void Game::prepare_level_transition()
+{
+    selected_transition_option = 0;
+
+    int completed_level = lvl_manager->current_level;
+    int next_level = completed_level + 1;
+
+    pending_transition_title = "You Won!";
+    pending_transition_story.clear();
+    pending_transition_story_title.clear();
+
+    if (completed_level >= 8) {
+        pending_transition_subtitle = "You cleared the final level\n and conquered the last\n chapter.\n";
+        current_screen = GAME_COMPLETE;
+        return;
+    }
+
+    bool chapter_complete = (completed_level == 2 || completed_level == 5);
+
+    if (chapter_complete) {
+        int next_chapter = next_level / 3;
+        pending_transition_subtitle = "The next chapter is waiting\n beyond this victory.";
+        pending_transition_story_title = GAME_CHAPTERS[next_chapter].title;
+        pending_transition_story = GAME_CHAPTERS[next_chapter].story;
+        current_screen = CHAPTER_CLEAR;
+    } else {
+        pending_transition_subtitle = "Level " + std::to_string(next_level + 1) + " is ready when you are.";
+        current_screen = LEVEL_CLEAR;
+    }
+}
+
+void Game::advance_to_next_level()
+{
+    if (lvl_manager->current_level < 8) {
+        lvl_manager->current_level++;
+        selected_chapter_option = lvl_manager->current_level / 3;
+        selected_level_option = lvl_manager->current_level % 3;
+        reset();
+        current_screen = GAMEPLAY;
+    } else {
+        current_screen = MENU;
+    }
+}
+
+void Game::handle_transition_input()
+{
+    if (IsKeyPressed(KEY_DOWN)) {
+        selected_transition_option = (selected_transition_option + 1) % 3;
+        PlaySound(vault.menu_switch);
+    }
+
+    if (IsKeyPressed(KEY_UP)) {
+        selected_transition_option = (selected_transition_option + 2) % 3;
+        PlaySound(vault.menu_switch);
+    }
+
+    if (IsKeyPressed(KEY_ENTER)) {
+        if (selected_transition_option == 0) {
+            if (current_screen == GAME_COMPLETE) {
+                current_screen = MENU;
+            } else {
+                advance_to_next_level();
+            }
+        } else if (selected_transition_option == 1) {
+            reset();
+            current_screen = GAMEPLAY;
+        } else {
+            return_to_main_menu(*this);
+        }
+    
+}
+}
+
+void Game::draw() {
+    BeginDrawing();
+    ClearBackground(Color{30, 34, 48, 255});
+
+    if (current_screen == MENU) {
+        game_ui->draw_main_menu(selected_menu_option);
+    }
+    else if (current_screen == STAGES) {
+        game_ui->draw_stages_menu(selected_chapter_option, selected_level_option);
+    }
+    else if (current_screen == KEYBINDS) {
+        game_ui->draw_keybinds();
+    }
+    else if (current_screen == LEVEL_CLEAR) {
+        game_ui->draw_transition_screen(
+            pending_transition_title,
+            pending_transition_subtitle,
+            "",
+            "",
+            "Next Level",
+            selected_transition_option
+        );
+    }
+    else if (current_screen == CHAPTER_CLEAR) {
+        game_ui->draw_transition_screen(
+            pending_transition_title,
+            pending_transition_subtitle,
+            pending_transition_story_title,
+            pending_transition_story,
+            "Next Chapter",
+            selected_transition_option
+        );
+    }
+    else if (current_screen == GAME_COMPLETE) {
+        game_ui->draw_transition_screen(
+            "You Won The Game!",
+            "The full journey is complete.\n Choose your next move.",
+            "",
+            "",
+            "Main Menu",
+            selected_transition_option
+        );
+    }
+    else if (current_screen == GAMEPLAY) {
+        if (!gameover) {
+            level* current_level = lvl_manager->get_current_level();
+            Texture2D bg_tex = (current_level->backdrop_theme == BACKDROP_WOODS_SUN || current_level->backdrop_theme == BACKDROP_WOODS_MOON) ? vault.background1 : vault.background2;
+            DrawTexturePro(bg_tex, {0, 0, (float)bg_tex.width, (float)bg_tex.height}, {0, 0, (float)screen_width, (float)screen_height}, {0, 0}, 0, WHITE);
+
+            BeginMode2D(camera);
+            lvl_manager->get_current_level()->draw_background();
+            lvl_manager->draw();
+            my_player->Draw();
+            EndMode2D();
+            
+            game_ui->draw_hud(my_player->lives, collected_coins);
+        } else {
+            game_ui->draw_game_over(collected_coins);
+        }
+    }
+
+    EndDrawing();
+}
+
+</code>
+
+src\level.cpp:
+<code>
+#include "../include/level.hpp"
+#include <algorithm>
+
+namespace {
+
+Color make_color(unsigned char r, unsigned char g, unsigned char b, unsigned char a = 255) {
+    return Color{r, g, b, a};
+}
+
+void draw_pixel_orb(Vector2 center, float radius, Color inner, Color outer) {
+    DrawCircleV(center, radius, outer);
+    DrawCircleV(center, radius * 0.7f, inner);
+    DrawCircleV({center.x - radius * 0.18f, center.y - radius * 0.22f}, radius * 0.16f, Fade(WHITE, 0.45f));
+}
+
+void draw_castle_towers(float start_x, float base_y, Color color) {
+    for (int i = 0; i < 4; i++) {
+        float x = start_x + i * 165.0f;
+        float width = (i % 2 == 0) ? 62.0f : 86.0f;
+        float height = 130.0f + i * 18.0f;
+        DrawRectangleV({x, base_y - height}, {width, height}, color);
+        DrawRectangleV({x - 10.0f, base_y - height - 18.0f}, {width + 20.0f, 18.0f}, color);
+        for (int c = 0; c < 4; c++) {
+            DrawRectangleV({x + 6.0f + c * ((width - 18.0f) / 3.0f), base_y - height - 28.0f}, {10.0f, 10.0f}, color);
+        }
+        DrawRectangleV({x + width * 0.3f, base_y - height * 0.55f}, {width * 0.2f, height * 0.2f}, Fade(make_color(245, 214, 120), 0.3f));
+    }
+}
+
+void draw_tree_line(float start_x, float base_y, int count, Color trunk, Color canopy, bool haunted) {
+    for (int i = 0; i < count; i++) {
+        float x = start_x + i * 96.0f;
+        float height = 70.0f + (float)((i * 19) % 35);
+        DrawRectangleV({x, base_y - height}, {12.0f, height}, trunk);
+        DrawTriangle(
+            {x - 28.0f, base_y - height + 28.0f},
+            {x + 6.0f, base_y - height - 42.0f},
+            {x + 40.0f, base_y - height + 28.0f},
+            canopy
+        );
+        DrawTriangle(
+            {x - 22.0f, base_y - height + 4.0f},
+            {x + 6.0f, base_y - height - 54.0f},
+            {x + 34.0f, base_y - height + 4.0f},
+            Fade(canopy, 0.85f)
+        );
+
+        if (haunted && i % 3 == 1) {
+            Vector2 ghost = {x + 44.0f, base_y - height - 16.0f - (float)(i % 2) * 12.0f};
+            DrawCircleV(ghost, 12.0f, Fade(make_color(220, 235, 255), 0.7f));
+            DrawRectangleV({ghost.x - 12.0f, ghost.y}, {24.0f, 18.0f}, Fade(make_color(220, 235, 255), 0.6f));
+            DrawCircleV({ghost.x - 4.0f, ghost.y - 2.0f}, 1.6f, make_color(40, 45, 70));
+            DrawCircleV({ghost.x + 4.0f, ghost.y - 2.0f}, 1.6f, make_color(40, 45, 70));
+        }
+    }
+}
+
+void draw_cave_teeth(float start_x, float top_y, float width, Color color, bool hanging) {
+    for (int i = 0; i < 10; i++) {
+        float x = start_x + i * (width / 10.0f);
+        float tooth_width = 65.0f + (float)((i * 23) % 35);
+        float tooth_height = 60.0f + (float)((i * 31) % 75);
+        if (hanging) {
+            DrawTriangle(
+                {x, top_y},
+                {x + tooth_width * 0.5f, top_y + tooth_height},
+                {x + tooth_width, top_y},
+                color
+            );
+        } else {
+            DrawTriangle(
+                {x, top_y},
+                {x + tooth_width * 0.5f, top_y - tooth_height},
+                {x + tooth_width, top_y},
+                color
+            );
+        }
+    }
+}
+
+void draw_knight_banner(float x, float y, Color pole, Color cloth, Color emblem) {
+    DrawRectangleV({x, y - 120.0f}, {8.0f, 120.0f}, pole);
+    DrawRectangleV({x + 8.0f, y - 110.0f}, {72.0f, 54.0f}, cloth);
+    DrawTriangle(
+        {x + 8.0f, y - 56.0f},
+        {x + 44.0f, y - 16.0f},
+        {x + 80.0f, y - 56.0f},
+        cloth
+    );
+    DrawCircleV({x + 44.0f, y - 84.0f}, 10.0f, emblem);
+    DrawLineEx({x + 44.0f, y - 98.0f}, {x + 44.0f, y - 70.0f}, 3.0f, Fade(WHITE, 0.6f));
+}
+}
+
+level::level(){
+    goal = {0, 0, 0, 0};
+    groundy = 0.0f;
+    backdrop_theme = BACKDROP_WOODS_SUN;
+}
+
+//destructor logic
+level::~level(){
+    for(auto obs : obstacles) delete obs;
+    for(auto c : coins) delete c;
+}
+
+//draw logic
+void level::draw(){
+    for(auto obs : obstacles) obs->Draw();
+    for(auto c : coins) c->Draw();
+    for(auto& rect : ladders){
+        DrawTexturePro(
+            ladder_texture,
+            {0, 0, (float)ladder_texture.width, (float)ladder_texture.height},
+            {rect.x, rect.y, rect.width, rect.height},
+            {0, 0}, 0.0f, WHITE
+        );
+    }
+    for(auto& rect : terrain_tiles){
+        DrawTexturePro(
+            terrain_texture,
+            {0, 0, (float)terrain_texture.width, (float)terrain_texture.height},
+            {(float)(int)rect.x, (float)(int)rect.y, rect.width + 1, rect.height + 1},
+            {0, 0}, 0.0f, WHITE
+        );
+    }
+    DrawTexturePro(
+        goal_texture,
+        {0, 0, (float)goal_texture.width, (float)goal_texture.height},
+        {goal.x, goal.y, goal.width, goal.height},
+        {0, 0}, 0.0f, WHITE
+    );
+}
+
+void level::draw_background() const {
+    float scene_width = std::max(goal.x + 320.0f, 2200.0f);
+    float skyline_y = groundy - 360.0f;
+    float far_base_y = groundy - 96.0f;
+    float near_base_y = groundy - 36.0f;
+
+    Color sky_top = make_color(40, 44, 70);
+    Color sky_bottom = make_color(90, 78, 74);
+    Color far_silhouette = make_color(34, 33, 49);
+    Color near_silhouette = make_color(18, 18, 30);
+    Color accent = make_color(246, 197, 91);
+    bool use_moon = false;
+    bool haunted = false;
+    bool caves = false;
+    bool fortress = false;
+    bool knights = false;
+
+    switch (backdrop_theme) {
+        case BACKDROP_WOODS_SUN:
+            sky_top = make_color(41, 55, 85);
+            sky_bottom = make_color(207, 126, 72);
+            far_silhouette = make_color(45, 58, 56);
+            near_silhouette = make_color(27, 35, 30);
+            accent = make_color(255, 193, 92);
+            break;
+        case BACKDROP_WOODS_MOON:
+            sky_top = make_color(25, 31, 61);
+            sky_bottom = make_color(83, 76, 110);
+            far_silhouette = make_color(39, 41, 66);
+            near_silhouette = make_color(20, 23, 39);
+            accent = make_color(214, 231, 255);
+            use_moon = true;
+            break;
+        case BACKDROP_HAUNTED_GROVE:
+            sky_top = make_color(21, 28, 55);
+            sky_bottom = make_color(59, 94, 99);
+            far_silhouette = make_color(30, 44, 52);
+            near_silhouette = make_color(16, 27, 32);
+            accent = make_color(211, 239, 255);
+            use_moon = true;
+            haunted = true;
+            break;
+        case BACKDROP_IRON_KEEP:
+            sky_top = make_color(30, 36, 56);
+            sky_bottom = make_color(115, 84, 66);
+            far_silhouette = make_color(47, 48, 59);
+            near_silhouette = make_color(25, 24, 33);
+            accent = make_color(255, 178, 82);
+            fortress = true;
+            break;
+        case BACKDROP_CRYPT_CAVES:
+            sky_top = make_color(18, 22, 35);
+            sky_bottom = make_color(53, 62, 75);
+            far_silhouette = make_color(33, 36, 47);
+            near_silhouette = make_color(14, 17, 24);
+            accent = make_color(160, 212, 224);
+            use_moon = true;
+            caves = true;
+            haunted = true;
+            break;
+        case BACKDROP_KNIGHT_WATCH:
+            sky_top = make_color(36, 33, 62);
+            sky_bottom = make_color(134, 63, 54);
+            far_silhouette = make_color(51, 45, 53);
+            near_silhouette = make_color(25, 22, 30);
+            accent = make_color(247, 165, 70);
+            fortress = true;
+            knights = true;
+            break;
+        case BACKDROP_BLOOD_MOON:
+            sky_top = make_color(28, 18, 34);
+            sky_bottom = make_color(114, 35, 38);
+            far_silhouette = make_color(50, 28, 39);
+            near_silhouette = make_color(25, 13, 21);
+            accent = make_color(226, 86, 74);
+            use_moon = true;
+            haunted = true;
+            break;
+        case BACKDROP_GHOST_HALL:
+            sky_top = make_color(19, 19, 35);
+            sky_bottom = make_color(79, 62, 86);
+            far_silhouette = make_color(39, 34, 53);
+            near_silhouette = make_color(18, 16, 27);
+            accent = make_color(201, 227, 255);
+            use_moon = true;
+            fortress = true;
+            haunted = true;
+            knights = true;
+            break;
+        case BACKDROP_FINAL_ECLIPSE:
+        default:
+            sky_top = make_color(12, 9, 21);
+            sky_bottom = make_color(95, 24, 32);
+            far_silhouette = make_color(39, 19, 28);
+            near_silhouette = make_color(15, 9, 14);
+            accent = make_color(246, 126, 78);
+            use_moon = true;
+            haunted = true;
+            caves = true;
+            fortress = true;
+            knights = true;
+            break;
+    }
+
+    // Draw a massive solid sky box way above the skyline to patch the top
+    DrawRectangle(-2000, (int)groundy - 2500, (int)scene_width + 4000, 2500 - 360, sky_top);
+    
+    // Draw the gradient spanning infinitely left and right
+    DrawRectangleGradientV(-2000.0f, skyline_y, scene_width + 4000.0f, groundy - skyline_y + 140.0f, sky_top, sky_bottom);
+
+    for (int i = 0; i < 16; i++) {
+        float x = 120.0f + i * 150.0f;
+        float y = skyline_y + 26.0f + (float)((i * 37) % 90);
+        float size = (i % 3 == 0) ? 5.0f : 3.0f;
+        DrawRectangleV({x, y}, {size, size}, Fade(WHITE, use_moon ? 0.55f : 0.2f));
+    }
+
+    if (use_moon) {
+        draw_pixel_orb({scene_width - 260.0f, skyline_y + 115.0f}, 54.0f, accent, Fade(accent, 0.55f));
+        DrawCircleV({scene_width - 238.0f, skyline_y + 105.0f}, 50.0f, Fade(sky_top, 0.92f));
+    } else {
+        draw_pixel_orb({scene_width - 250.0f, skyline_y + 110.0f}, 60.0f, accent, Fade(accent, 0.5f));
+    }
+
+    for (int i = 0; i < 8; i++) {
+        float x = -80.0f + i * 320.0f;
+        DrawCircleV({x + 110.0f, skyline_y + 84.0f + (float)(i % 2) * 18.0f}, 34.0f, Fade(WHITE, 0.08f));
+        DrawCircleV({x + 148.0f, skyline_y + 74.0f + (float)(i % 3) * 12.0f}, 28.0f, Fade(WHITE, 0.08f));
+        DrawCircleV({x + 78.0f, skyline_y + 76.0f}, 24.0f, Fade(WHITE, 0.08f));
+    }
+
+    for (int i = 0; i < 6; i++) {
+        float ridge_x = -120.0f + i * 420.0f;
+        DrawTriangle({ridge_x, far_base_y}, {ridge_x + 170.0f, skyline_y + 170.0f}, {ridge_x + 340.0f, far_base_y}, far_silhouette);
+    }
+
+    if (fortress) {
+        draw_castle_towers(180.0f, far_base_y + 10.0f, Fade(make_color(67, 68, 84), 0.85f));
+        draw_castle_towers(scene_width - 820.0f, far_base_y + 20.0f, Fade(make_color(59, 60, 76), 0.8f));
+    }
+
+    if (caves) {
+        draw_cave_teeth(-80.0f, skyline_y + 4.0f, scene_width + 160.0f, Fade(make_color(26, 22, 30), 0.94f), true);
+        draw_cave_teeth(-60.0f, near_base_y + 28.0f, scene_width + 120.0f, Fade(make_color(20, 18, 24), 0.92f), false);
+    }
+
+    draw_tree_line(-20.0f, near_base_y + 20.0f, 26, Fade(make_color(44, 30, 28), 0.95f), Fade(make_color(26, 35, 31), haunted ? 0.9f : 1.0f), haunted);
+
+    if (knights) {
+        draw_knight_banner(240.0f, near_base_y + 10.0f, make_color(94, 88, 82), make_color(112, 34, 35), make_color(238, 220, 180));
+        draw_knight_banner(scene_width - 420.0f, near_base_y + 10.0f, make_color(94, 88, 82), make_color(73, 83, 126), make_color(238, 220, 180));
+        DrawRectangleV({scene_width * 0.5f - 18.0f, near_base_y - 84.0f}, {36.0f, 84.0f}, Fade(make_color(44, 44, 58), 0.95f));
+        DrawCircleV({scene_width * 0.5f, near_base_y - 98.0f}, 18.0f, Fade(make_color(150, 151, 166), 0.9f));
+        DrawLineEx({scene_width * 0.5f, near_base_y - 82.0f}, {scene_width * 0.5f, near_base_y - 24.0f}, 6.0f, Fade(make_color(150, 151, 166), 0.9f));
+        DrawLineEx({scene_width * 0.5f - 26.0f, near_base_y - 54.0f}, {scene_width * 0.5f + 26.0f, near_base_y - 54.0f}, 6.0f, Fade(make_color(150, 151, 166), 0.9f));
+    }
+
+// Change this line at the very end of the function:
+    DrawRectangleV({-2000.0f, groundy}, {scene_width + 4000.0f, 1500.0f}, make_color(16, 18, 22));
+}
+
+//update logic
+void level::update(){
+    for(auto obs : obstacles) obs->update();
+    for(auto c : coins) c->update();
+}
+
+//loading obstacles from the map logic
+void level::load_from_grid(const char** map_data, int rows, int cols, float tile_size, assets_manager& vault, float ground_y){
+    ladder_texture = vault.ladder;
+    box_texture = vault.box;
+    terrain_texture = vault.grass;
+    coin_sound = vault.coin_pickup;
+    spike_texture = vault.spike;
+    goal_texture = vault.goal;
+    groundy = ground_y;
+    this->vault = &vault;
+
+    for(auto obs : obstacles) delete obs;
+    obstacles.clear();
+
+    for(auto c : coins) delete c;
+    coins.clear();
+    ladders.clear();
+    terrain_tiles.clear();
+    goal = {0, 0, 0, 0};
+
+    for(int y = 0; y < rows; y++){
+        int row_len = strlen(map_data[y]);
+        for(int x = 0; x < row_len; x++){
+            char tile = map_data[y][x];
+
+            float spawn_x = x * tile_size;
+            float spawn_y = groundy - (rows - y) * tile_size;
+
+            if(tile == 'T'){
+                terrain_tiles.push_back({spawn_x, spawn_y, tile_size, tile_size});
+            } else if(tile == 'B'){
+                obstacles.push_back(new obstacle(spawn_x, spawn_y, false, box, box_texture, spike_texture));
+            } else if(tile == 'M'){
+                obstacles.push_back(new obstacle(spawn_x, spawn_y, true, moving_pad, box_texture, spike_texture));
+            } else if(tile == 'S'){
+                obstacles.push_back(new obstacle(spawn_x, spawn_y, false, spike, box_texture, spike_texture));
+            } else if(tile == 'C'){
+                coins.push_back(new coin(spawn_x, spawn_y, 15.0f, 1, coin_sound));
+            } else if(tile == 'L'){
+                ladders.push_back({spawn_x, spawn_y - tile_size * 2, tile_size, tile_size});
+            } else if(tile == 'G'){
+                goal = {spawn_x, spawn_y - 32, 48, 96};
+            }
+        }
+    }
+}  
+
+//reset position logic
+void level::reset(){
+    for(auto obs : obstacles){
+        obs->position.x = obs->start_x;
+        obs->position.y = obs->start_y;
+        obs->direction = -1;  
+    }
+    for(auto c : coins){
+        c->collected = false;
+        
+    }
+
+}
+
+void level::set_backdrop_theme(int theme) {
+    backdrop_theme = theme;
+}
+</code>
+
+src\levelmanager.cpp:
+<code>
+#include "../include/levelmanager.hpp"
+
+levelmanager::levelmanager(assets_manager& vault, float groundy){
+    current_level = 0;
+
+    // LEVEL 1 - gentle, no spikes, wide platforms, 2 moving pads
+    level* level1 = new level;
+    levels.push_back(level1);
+    const char* level1_map[] = {
+        "..................................................................................................C..............G",
+        "..................................................................................................T..............T",
+        ".....C....................C.........................................C.............................T..............TTTTTT",
+        ".....TTTTTTT..........TTTTTTT..............................TTTTTTTTT.......................TTTTTTT..............TTTTTT",
+        "TTTTTTTTTTTT..........TTTTTTT....MMMMMM.............MMMMMMTTTTTTTTT.....MMMMMM.........TTTTTTT................TTTTTT",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+    level1->load_from_grid(level1_map, 6, 80, 32, vault, groundy);
+
+    // LEVEL 2 - introduces spikes, wide buffers
+    level* level2 = new level;
+    levels.push_back(level2);
+    const char* level2_map[] = {
+        "......................................................................................................C..............G",
+        "......................................................................................................T.............TT",
+        ".....C....................C..................C..............................C.............................T........TTTTTT",
+        ".....TTTTTTT..........TTTTTTT........TTTTTTTTT.......MM...........TTTTTTTTT.......................TTTTTTT.........TTTTTT",
+        "TTTTTTTTTTTT..........TTTTTTT........TTTTTTTTT....S.....S..........TTTTTTTTT.....MMMMMM.........TTTTTTT.........TTTTTT",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+    level2->load_from_grid(level2_map, 6, 80, 32, vault, groundy);
+
+    // LEVEL 3 - more spikes, same gap rules
+    level* level3 = new level;
+    levels.push_back(level3);
+    const char* level3_map[] = {
+        "..........................................................................................................C..............G",
+        "..........................................................................................................T.............TT",
+        "........C.................C..................C......................................C................................TTTTT........TTTTTT",
+        ".....TTTTTTT..........TTTTTTT........TTTTTTTTT......MM..............TTTTTTTTT.....TTTTTTT.....MM...................TTTTTTTTT............TTTTTT",
+        "TTTTTTTTTTTT..........TTTTTTT........TTTTTTTTT....S.....S...............TTTTTTTTT...TTTTTTT.S.....S...........TTTTTTTTT................TTTTTT",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+    level3->load_from_grid(level3_map, 6, 80, 32, vault, groundy);
+
+    // LEVEL 4 - introduces ladders, upper floor reachable
+    level* level4 = new level;
+    levels.push_back(level4);
+    const char* level4_map[] = {
+        ".....C.......................C................................C...............................C....................G",
+        ".......TTTTTTT.......MM........TTTTTTT.....MM....MM....MM.....TTTTTTT.....MM.........MM......TTTTTTT.........TTTTTT",
+        ".....LL......................LL............S...........S....LL.............................LL..............LL",
+        ".....LL......................LL.............................LL.............................LL..............LL",
+        ".....LL......................LL..........MM.................LL.............................LL..............LL",
+        "TTTTTTTTTTT..........TTTTTTTTTT........S.....S...........TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.......TTTTTTTTTTTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+    level4->load_from_grid(level4_map, 7, 80, 32, vault, groundy);
+
+    // LEVEL 5 - ladders + spikes combination
+    level* level5 = new level;
+    levels.push_back(level5);
+    const char* level5_map[] = {
+        ".....C.......................C................................C.............................C....................G",
+        ".......TTTTTTT....MM......MM...TTTTTTT......MM.........MM.....TTTTTTT........................TTTTTTT..MM....TTTTTT",
+        ".....LL......................LL.............................LL.............................LL..........S...LL",
+        ".....LL......................LL.............................LL.............................LL..............LL",
+        ".....LL......................LL......MM.....................LL.............................LL..............LL",
+        "TTTTTTTTTTT..........TTTTTTTTTT....S.....S...............TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.........TTTTTTTTTTTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+    level5->load_from_grid(level5_map, 7, 80, 32, vault, groundy);
+
+    // LEVEL 6 - harder spikes, longer gaps
+    level* level6 = new level;
+    levels.push_back(level6);
+    const char* level6_map[] = {
+        ".....C.......................C................................C.............................C....................G",
+        ".......TTTTTTT.................TTTTTTT.....MM......MM......TTTTTTT......MM...........MM......TTTTTTT.........TTTTTT",
+        ".....LL......................LL................SS........LL................................LL..............LL",
+        ".....LL......................LL..........................LL................................LL..............LL",
+        ".....LL......................LL..........................LL................................LL..............LL",
+        "TTTTTTTTTTT.......TTTTTTTTTTTTT........................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT...............TTTTTTTTTTTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+    level6->load_from_grid(level6_map, 7, 80, 32, vault, groundy);
+
+    // LEVEL 7 - tight gaps, multiple ladders
+    level* level7 = new level;
+    levels.push_back(level7);
+    const char* level7_map[] = {
+        ".....C.................C.......................C................................C................................C..G",
+        ".......TTTTTTT.....MM....TTTTTTT.......MM........TTTTTTT......MM.......MM.......TTTTTTT........................TTTTTTTTTTTTT",
+        ".....LL................LL......................LL.............................LL.............................LL.......LL",
+        ".....LL................LL.............SSS......LL.............................LL.............................LL.......LL",
+        ".....LL................LL......................LL.............................LL.............................LL.......LL",
+        "TTTTTTTTTTT....TTTTTTTTTT.....................TTTTTTTT......S.......S......TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.......TTTTTTTTTTTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+    level7->load_from_grid(level7_map, 7, 80, 32, vault, groundy);
+
+    // LEVEL 8 - very hard, lots of spikes
+    level* level8 = new level;
+    levels.push_back(level8);
+    const char* level8_map[] = {
+        ".....C.................C.......................C................................C.................................C..G",
+        ".......TTTTTTT...........TTTTTTT....MM.....MM....TTTTTTT.....MM.......MM........TTTTTTT....MM.....MM....MM.....TTTTTTTTTTTTT",
+        ".....LL................LL......................LL.............................LL..........SSS.......SSS......LL.......LL",
+        ".....LL................LL......................LL.............................LL.............................LL.......LL",
+        ".....LL................LL......................LL.............................LL.............................LL.......LL",
+        "TTTTTTTTTTT....TTTTTTTT.....SS.......SS.......TTTTTTTT.....SS.......SS.......TTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.......TTTTTTTTTTTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+    level8->load_from_grid(level8_map, 7, 80, 32, vault, groundy);
+
+    // LEVEL 9 - brutal final level
+    level* level9 = new level;
+    levels.push_back(level9);
+    const char* level9_map[] = {
+        "..........C.................C.......................C..........................C..................................C...G",
+        ".......TTTTTTT....MM.....TTTTTTT.......MM........TTTTTTT......MM......MM........TTTTTTT......MM.......MM.......TTTTTTTTTTTTT",
+        ".....LL................LL..........SSS...SSS...LL.............................LL............SSS.......SSS....LL.......LL",
+        ".....LL................LL......................LL.............SSS.....SSS.....LL.............................LL.......LL",
+        ".....LL................LL......................LL.............................LL.............................LL.......LL",
+        "TTTTTTTTTTT....TTTTTTTTTT............SSS......TTTTTTTT.......................TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT....TTTTTTTTTTTTT.",
+        "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT.",
+    };
+    level9->load_from_grid(level9_map, 7, 80, 32, vault, groundy);
+}
+
+//Destructor logic
+levelmanager::~levelmanager(){
+    for(auto lvl : levels) delete lvl;
+}
+
+//update logic
+void levelmanager::update(){
+    if(levels.size() > 0) levels[current_level]->update();
+}
+
+//draw logic
+void levelmanager::draw(){
+    if(levels.size() > 0) levels[current_level]->draw();
+}
+
+//reset the current level logic
+void levelmanager::reset_current_level(){
+    if(levels.size() > 0) levels[current_level]->reset();
+}
+
+//get current level logic
+level* levelmanager::get_current_level(){
+    return levels[current_level];
+}
+
+</code>
+
+src\main.cpp:
+<code>
+#include "../include/game.hpp"
+#include "../include/assets.hpp"
+#include "../include/player.hpp"
+#include "../include/obstacle.hpp"  
+#include "../include/coin.hpp"
+
+int main() {
+    const int screen_width = 1280;
+    const int screen_height = 800;
+
+    InitWindow(screen_width, screen_height, "platformer");
+    InitAudioDevice();
+    SetTargetFPS(60);
+    SetExitKey(KEY_NULL);
+
+    Game game(screen_width, screen_height);
+
+    while (!game.should_exit) {
+        game.update();
+        game.draw();
+    }
+
+    CloseWindow();
+    return 0;
+}
+
+</code>
+
+src\obstacle.cpp:
+<code>
+#include "../include/obstacle.hpp"  
+
+//Constructor logic
+obstacle::obstacle(float x, float y, bool moving, type_of_obstacle type, Texture2D boxe , Texture2D spikes){
+    box_scale = 1.0f;
+    position.x = x;
+    is_moving = moving;
+
+    spike_texture = spikes;
+    the_box = boxe;
+    frame_rec.x = 0;
+    frame_rec.y = 0;
+    is_harmful = true;
+
+    the_type = type;
+
+    switch (the_type)
+    {
+        case spike:
+            is_harmful = true;
+            is_moving = false;
+            frame_rec.width = spike_texture.width;
+            frame_rec.height = spike_texture.height;
+            box_scale = 2.0f;
+            break;
+        case moving_pad:
+            is_harmful = false;
+            is_moving = true;
+            frame_rec.width = 100;
+            frame_rec.height = 20;
+            break;
+        case box:
+            is_harmful = false;
+            is_moving = false;
+
+            frame_rec.width = the_box.width;
+            frame_rec.height = the_box.height;
+            width = frame_rec.width * box_scale;
+            height = frame_rec.height * box_scale;
+            break;
+    }
+
+    if(the_type != box){
+        width = frame_rec.width;
+        height = frame_rec.height;
+    }
+    position.y = y - height;
+
+    direction = -1;
+    start_x = position.x;
+    start_y = position.y;
+    patrol_distance = 150;
+    speed = 3.0f;
+}
+
+//Destructor logic
+obstacle::~obstacle(){
+}
+
+//Movement logic
+void obstacle::update(){
+    float distance_traveled;
+    switch (the_type)
+    {
+        case spike:
+            break;
+        case moving_pad:
+            position.x = position.x + (speed * direction);
+            distance_traveled = start_x - position.x;
+            if(abs(distance_traveled) >= patrol_distance){
+                    direction = direction * (-1);
+            }
+            break;
+        case box:
+            break;
+        }
+}
+
+//Drawing logic
+void obstacle::Draw(){
+    switch (the_type) {
+        case box:
+            DrawTextureEx(the_box, position, 0.0f, box_scale, WHITE);
+            break;
+
+        case moving_pad:
+            //DrawTextureEx(the_box, position, 0.0f, box_scale, WHITE);
+            DrawRectangle(position.x, position.y, width, height, Color{220, 120, 20, 255});
+            break;
+        case spike:
+            DrawTextureEx(spike_texture, position, 0.0f, box_scale, WHITE);
+            break;
+    }
+}
+</code>
+
+src\player.cpp:
+<code>
+#include "../include/player.hpp"
+
+player::player(float start_x, float start_y, Texture2D mc_sprite_idle, Texture2D mc_sprite_run, Texture2D mc_sprite_jump, Sound jumpsound){
+    scale = 1.0f;
+    position = {start_x, start_y};
+    is_hurt = false;
+    hurt_timer = 0;
+
+    jump_sound = jumpsound;
+    sprite_idle = mc_sprite_idle;
+    sprite_run = mc_sprite_run;
+    sprite_jump = mc_sprite_jump;
+
+    max_frames = 8;
+    frames_speed = 3;
+    frames_counter = 0;
+    current_frame = 0;
+
+    frame_rec.width = (float)sprite_idle.width / max_frames;
+    frame_rec.height = sprite_idle.height;
+    frame_rec.x = 0;
+    frame_rec.y = 0;
+
+    direction = 1;
+
+    width = frame_rec.width * scale;
+    height = frame_rec.height * scale;
+
+    lives = 3;
+
+    yspeed = 0;
+    gravity = 1.5;
+    horizontal_movement = 5;
+
+    on_ground = false;
+}
+
+player::~player() {}
+
+void player::update_animation(){
+    frames_counter++;
+    if(frames_counter >= frames_speed) {
+        frames_counter = 0;
+        current_frame++;
+        if(current_frame >= max_frames){
+            current_frame = 0;
+        }    
+    }
+    frame_rec.x = (float) current_frame * frame_rec.width;
+}
+
+void player::update(float groundy){
+    if(IsKeyPressed(KEY_SPACE) && on_ground){
+        yspeed = -18;
+        on_ground = false;
+        PlaySound(jump_sound);
+    }
+
+    on_ground = false;
+
+    if(on_ladder){
+        yspeed = 0;
+        if(IsKeyDown(KEY_W) || IsKeyDown(KEY_UP)) position.y -= 3.0f;
+        if(IsKeyDown(KEY_S) || IsKeyDown(KEY_DOWN)) position.y += 3.0f;
+    } else {
+        yspeed += gravity;
+        position.y += yspeed;
+    }
+
+    if(IsKeyDown(KEY_D) || IsKeyDown(KEY_RIGHT)){ 
+        position.x += horizontal_movement;
+        direction = 1;
+    }
+    if(IsKeyDown(KEY_A) || IsKeyDown(KEY_LEFT)) {
+        position.x -= horizontal_movement;
+        direction = -1;
+    }
+}
+
+void player::Draw(){
+    int prev_state = game_state;
+
+    if(!on_ground){
+        game_state = jumping;
+    }
+    else if(IsKeyDown(KEY_A) || IsKeyDown(KEY_D)){
+        game_state = running;
+    }
+    else{
+        game_state = idle;
+    }
+    
+    Texture2D active_texture;
+    int active_max_frames = 8; 
+
+    if (game_state == idle) {
+        active_texture = sprite_idle;
+        active_max_frames = 8; 
+    } 
+    else if (game_state == running) {
+        active_texture = sprite_run;
+        active_max_frames = 8; 
+    } 
+    else {
+        active_texture = sprite_jump;
+        active_max_frames = 8; 
+    }
+
+    if (game_state != prev_state) {
+        current_frame = 0;
+        frames_counter = 0;
+    }
+
+    max_frames = active_max_frames; 
+
+    frame_rec.width = (float)active_texture.width / max_frames;
+    frame_rec.height = (float)active_texture.height;
+
+    update_animation();
+
+    Rectangle source = frame_rec;
+
+    if(direction == -1){
+        source.width = -frame_rec.width;
+    }
+
+    float art_width = frame_rec.width * scale;
+    float art_height = frame_rec.height * scale;
+
+    Rectangle dest = {
+        position.x - (art_width - width) / 2.0f,
+        position.y - (art_height - height),
+        art_width,
+        art_height
+    };
+
+    DrawTexturePro(active_texture, source, dest, {0, 0}, 0.0f, WHITE);
+}
+</code>
+
+src\UI.cpp:
+<code>
+#include "../include/UI.hpp"
+#include <sstream>
+#include <vector>
+
+namespace {
+struct ChapterInfo {
+    const char* title;
+    const char* levels[3];
+    const char* story;
+    Color accent;
+};
+
+const ChapterInfo CHAPTERS[3] = {
+    {
+        "Chapter I - Whispering Woods",
+        {"Level 1 - Forest Path", "Level 2 - Thorn Crossing", "Level 3 - Hunter's Rise"},
+        "The journey begins beneath ancient trees where the hero follows a fading trail. Every jump through the forest reveals that something dark has started to wake beyond the roots.",
+        Color{114, 191, 108, 255}
+    },
+    {
+        "Chapter II - Iron Ascent",
+        {"Level 4 - Ladder Keep", "Level 5 - Rusted Watch", "Level 6 - Broken Lift"},
+        "Past the forest waits a ruined stronghold of ladders, traps, and narrow ledges. The climb is no longer about discovery, but survival against a fortress that refuses to fall quietly.",
+        Color{242, 179, 66, 255}
+    },
+    {
+        "Chapter III - Crown of Shadows",
+        {"Level 7 - Ash Steps", "Level 8 - Blade Hall", "Level 9 - Final Gate"},
+        "At the summit, the path turns cruel and every mistake carries weight. The last chapter tests whether the hero can cross the shadowed crown and reach the gate before hope runs out.",
+        Color{226, 92, 92, 255}
+    }
+};
+
+std::vector<std::string> wrap_text(const std::string& text, int font_size, int max_width)
+{
+    std::istringstream stream(text);
+    std::vector<std::string> lines;
+    std::string word;
+    std::string current_line;
+
+    while (stream >> word)
+    {
+        std::string candidate = current_line.empty() ? word : current_line + " " + word;
+        if (MeasureText(candidate.c_str(), font_size) <= max_width)
+        {
+            current_line = candidate;
+        }
+        else
+        {
+            if (!current_line.empty())
+            {
+                lines.push_back(current_line);
+            }
+            current_line = word;
+        }
+    }
+
+    if (!current_line.empty())
+    {
+        lines.push_back(current_line);
+    }
+
+    return lines;
+}
+}
+
+UI::UI(int width, int height)
+{
+    screen_width = width;
+    screen_height = height;
+    font_size = 30;
+}
+
+void UI::draw_hud(int lives, int coins) const
+{
+    draw_panel();
+    draw_text_shadow("Lives: " + std::to_string(lives), 20, 18, font_size, RAYWHITE);
+    draw_text_shadow("Coins: " + std::to_string(coins), 220, 18, font_size, GOLD);
+}
+
+void UI::draw_game_over(int coins) const
+{
+    DrawRectangle(0, 0, screen_width, screen_height, Fade(BLACK, 0.7f));
+
+    const std::string game_over = "GAME OVER";
+    const std::string coins_text = "Coins collected: " + std::to_string(coins);
+    const std::string retry_text = "Press R to play again";
+
+    int game_over_x = (screen_width - MeasureText(game_over.c_str(), 64)) / 2;
+    int coins_x = (screen_width - MeasureText(coins_text.c_str(), 32)) / 2;
+    int retry_x = (screen_width - MeasureText(retry_text.c_str(), 26)) / 2;
+
+    draw_text_shadow(game_over, game_over_x, screen_height / 2 - 100, 64, RED);
+    draw_text_shadow(coins_text, coins_x, screen_height / 2, 32, GOLD);
+    draw_text_shadow(retry_text, retry_x, screen_height / 2 + 60, 26, RAYWHITE);
+}
+
+void UI::draw_main_menu(int selected_option) const
+{
+    const char* options[4] = {"Start Game", "Chapters", "Keybinds", "Quit"};
+
+    DrawRectangleGradientV(0, 0, screen_width, screen_height, Color{26, 31, 53, 255}, Color{10, 14, 24, 255});
+    DrawCircle(screen_width - 180, 140, 110.0f, Fade(GOLD, 0.10f));
+    DrawCircle(160, screen_height - 130, 140.0f, Fade(SKYBLUE, 0.08f));
+
+    draw_centered_text("PLATFORMER", 110, 64, RAYWHITE);
+    draw_centered_text("Use UP/DOWN and ENTER", 190, 24, Fade(RAYWHITE, 0.8f));
+
+    for (int i = 0; i < 4; i++)
+    {
+        Rectangle button = {(float)screen_width / 2.0f - 180.0f, 270.0f + (float)i * 90.0f, 360.0f, 64.0f};
+        bool selected = i == selected_option;
+        Color fill = selected ? Color{220, 179, 55, 255} : Fade(RAYWHITE, 0.10f);
+        Color border = selected ? GOLD : Fade(RAYWHITE, 0.35f);
+        Color text_color = selected ? BLACK : RAYWHITE;
+
+        DrawRectangleRounded(button, 0.25f, 8, fill);
+        DrawRectangleLinesEx(button, 2.0f, border);
+        draw_centered_text(options[i], (int)button.y + 18, 30, text_color);
+    }
+}
+
+void UI::draw_stages_menu(int selected_chapter, int selected_level) const
+{
+    const ChapterInfo& active_chapter = CHAPTERS[selected_chapter];
+
+    DrawRectangleGradientV(0, 0, screen_width, screen_height, Color{18, 23, 42, 255}, Color{6, 10, 20, 255});
+    DrawCircle(135, 120, 90.0f, Fade(active_chapter.accent, 0.10f));
+    DrawCircle(screen_width - 140, screen_height - 110, 130.0f, Fade(SKYBLUE, 0.06f));
+
+    draw_centered_text("CHAPTER SELECT", 58, 54, RAYWHITE);
+    draw_centered_text("UP/DOWN: Chapter   A/D: Level   ENTER: Play", 118, 22, Fade(RAYWHITE, 0.82f));
+
+    for (int i = 0; i < 3; i++)
+    {
+        const bool chapter_selected = i == selected_chapter;
+        Rectangle chapter_card = {70.0f, 200.0f + (float)i * 120.0f, 410.0f, 94.0f};
+        Color fill = chapter_selected ? Fade(CHAPTERS[i].accent, 0.90f) : Fade(RAYWHITE, 0.07f);
+        Color border = chapter_selected ? CHAPTERS[i].accent : Fade(RAYWHITE, 0.22f);
+        Color text_color = chapter_selected ? BLACK : RAYWHITE;
+
+        DrawRectangleRounded(chapter_card, 0.18f, 8, fill);
+        DrawRectangleLinesEx(chapter_card, 2.0f, border);
+        draw_text_shadow(CHAPTERS[i].title, (int)chapter_card.x + 18, (int)chapter_card.y + 16, 26, text_color);
+
+        for (int level = 0; level < 3; level++)
+        {
+            Rectangle level_chip = {
+                chapter_card.x + 18.0f + level * 124.0f,
+                chapter_card.y + 50.0f,
+                112.0f,
+                28.0f
+            };
+
+            bool level_selected = chapter_selected && level == selected_level;
+            Color chip_fill = level_selected ? Fade(BLACK, 0.85f) : Fade(BLACK, 0.25f);
+            Color chip_border = level_selected ? RAYWHITE : Fade(RAYWHITE, 0.18f);
+            Color chip_text = RAYWHITE;
+
+            DrawRectangleRounded(level_chip, 0.30f, 8, chip_fill);
+            DrawRectangleLinesEx(level_chip, 1.5f, chip_border);
+            DrawText(TextFormat("Level %d", i * 3 + level + 1), (int)level_chip.x + 23, (int)level_chip.y + 5, 18, chip_text);
+        }
+    }
+
+    Rectangle story_panel = {530.0f, 200.0f, 470.0f, 334.0f};
+    draw_story_block(story_panel, active_chapter.title, active_chapter.story);
+
+    DrawRectangleRounded({530.0f, 554.0f, 470.0f, 118.0f}, 0.18f, 8, Fade(BLACK, 0.28f));
+    DrawRectangleLinesEx({530.0f, 554.0f, 470.0f, 118.0f}, 2.0f, Fade(active_chapter.accent, 0.75f));
+    draw_text_shadow("Selected Mission", 554, 570, 24, active_chapter.accent);
+    draw_text_shadow(active_chapter.levels[selected_level], 554, 606, 28, RAYWHITE);
+    draw_text_shadow("Press ENTER to jump into this level.", 554, 642, 20, Fade(RAYWHITE, 0.82f));
+
+    draw_centered_text("Press ESC to return", screen_height - 46, 20, Fade(RAYWHITE, 0.75f));
+}
+
+void UI::draw_keybinds() const
+{
+    DrawRectangleGradientV(0, 0, screen_width, screen_height, Color{44, 29, 24, 255}, Color{15, 10, 8, 255});
+    draw_centered_text("KEYBINDS", 90, 58, RAYWHITE);
+
+    DrawRectangleRounded({screen_width / 2.0f - 270.0f, 220.0f, 540.0f, 280.0f}, 0.18f, 8, Fade(BLACK, 0.35f));
+    DrawRectangleLinesEx({screen_width / 2.0f - 270.0f, 220.0f, 540.0f, 280.0f}, 2.0f, Fade(RAYWHITE, 0.30f));
+
+    draw_text_shadow("A  - Move Left", screen_width / 2 - 210, 270, 30, RAYWHITE);
+    draw_text_shadow("D  - Move Right", screen_width / 2 - 210, 320, 30, RAYWHITE);
+    draw_text_shadow("SPACE  - Jump", screen_width / 2 - 210, 370, 30, RAYWHITE);
+    draw_text_shadow("R  - Restart After Game Over", screen_width / 2 - 210, 420, 30, GOLD);
+
+    draw_centered_text("Press ESC to return", screen_height - 80, 22, Fade(RAYWHITE, 0.75f));
+}
+
+void UI::draw_transition_screen(const std::string& title,
+                                const std::string& subtitle,
+                                const std::string& story_title,
+                                const std::string& story,
+                                const char* continue_label,
+                                int selected_option) const
+{
+    Color accent = story.empty() ? Color{87, 185, 242, 255} : GOLD;
+
+    DrawRectangleGradientV(0, 0, screen_width, screen_height, Color{21, 26, 48, 255}, Color{8, 11, 22, 255});
+    DrawCircle(150, 120, 90.0f, Fade(accent, 0.10f));
+    DrawCircle(screen_width - 160, screen_height - 120, 150.0f, Fade(SKYBLUE, 0.08f));
+
+    Rectangle hero_panel = {80.0f, 150.0f, 500.0f, 380.0f};
+    DrawRectangleRounded(hero_panel, 0.18f, 8, Fade(BLACK, 0.28f));
+    DrawRectangleLinesEx(hero_panel, 2.0f, Fade(accent, 0.75f));
+
+    draw_text_shadow(title, 110, 195, 48, RAYWHITE);
+    draw_text_shadow(subtitle, 110, 265, 28, Fade(RAYWHITE, 0.88f));
+    draw_text_shadow("Choose what to do next.", 110, 320, 24, Fade(RAYWHITE, 0.74f));
+
+    draw_option_button({110.0f, 390.0f, 180.0f, 58.0f}, continue_label, selected_option == 0, accent);
+    draw_option_button({310.0f, 390.0f, 180.0f, 58.0f}, "Try Again", selected_option == 1, accent);
+    draw_option_button({210.0f, 465.0f, 180.0f, 58.0f}, "Quit", selected_option == 2, accent);
+
+    if (!story.empty())
+    {
+        Rectangle story_panel = {640.0f, 150.0f, 520.0f, 430.0f};
+        draw_story_block(story_panel, story_title, story);
+    }
+    else
+    {
+        Rectangle info_panel = {640.0f, 150.0f, 520.0f, 430.0f};
+        DrawRectangleRounded(info_panel, 0.18f, 8, Fade(BLACK, 0.28f));
+        DrawRectangleLinesEx(info_panel, 2.0f, Fade(RAYWHITE, 0.22f));
+        draw_text_shadow("Victory", 670, 190, 34, accent);
+        draw_text_shadow("You cleared the path ahead.", 670, 250, 28, RAYWHITE);
+        draw_text_shadow("Take the next level,", 670, 320, 28, Fade(RAYWHITE, 0.86f));
+        draw_text_shadow("retry this one,", 670, 360, 28, Fade(RAYWHITE, 0.86f));
+        draw_text_shadow("or head back out.", 670, 400, 28, Fade(RAYWHITE, 0.86f));
+    }
+
+    draw_centered_text("UP/DOWN: Move   ENTER: Confirm", screen_height - 52, 20, Fade(RAYWHITE, 0.76f));
+}
+
+void UI::draw_panel() const
+{
+    DrawRectangleRounded({10, 10, 360, 56}, 0.25f, 8, Fade(BLACK, 0.45f));
+    DrawRectangleLinesEx({10, 10, 360, 56}, 2.0f, Fade(RAYWHITE, 0.35f));
+}
+
+void UI::draw_text_shadow(const std::string& text, int x, int y, int size, Color color) const
+{
+    DrawText(text.c_str(), x + 2, y + 2, size, Fade(BLACK, 0.7f));
+    DrawText(text.c_str(), x, y, size, color);
+}
+
+void UI::draw_centered_text(const std::string& text, int y, int size, Color color) const
+{
+    int x = (screen_width - MeasureText(text.c_str(), size)) / 2;
+    draw_text_shadow(text, x, y, size, color);
+}
+
+void UI::draw_story_block(const Rectangle& bounds, const std::string& title, const std::string& story) const
+{
+    DrawRectangleRounded(bounds, 0.18f, 8, Fade(BLACK, 0.28f));
+    DrawRectangleLinesEx(bounds, 2.0f, Fade(RAYWHITE, 0.22f));
+
+    draw_text_shadow("Story", (int)bounds.x + 24, (int)bounds.y + 24, 28, RAYWHITE);
+    draw_text_shadow(title, (int)bounds.x + 24, (int)bounds.y + 66, 24, GOLD);
+
+    const int story_font_size = 24;
+    const int line_height = 30;
+    int text_x = (int)bounds.x + 24;
+    int text_y = (int)bounds.y + 108;
+    int max_width = (int)bounds.width - 48;
+    std::vector<std::string> lines = wrap_text(story, story_font_size, max_width);
+
+    for (size_t i = 0; i < lines.size(); i++)
+    {
+        draw_text_shadow(lines[i], text_x, text_y + (int)i * line_height, story_font_size, Fade(RAYWHITE, 0.92f));
+    }
+}
+
+void UI::draw_option_button(const Rectangle& bounds, const std::string& label, bool selected, Color accent) const
+{
+    Color fill = selected ? accent : Fade(RAYWHITE, 0.08f);
+    Color border = selected ? accent : Fade(RAYWHITE, 0.22f);
+    Color text_color = selected ? BLACK : RAYWHITE;
+
+    DrawRectangleRounded(bounds, 0.24f, 8, fill);
+    DrawRectangleLinesEx(bounds, 2.0f, border);
+
+    int label_x = (int)(bounds.x + (bounds.width - MeasureText(label.c_str(), 24)) / 2.0f);
+    int label_y = (int)bounds.y + 16;
+    draw_text_shadow(label, label_x, label_y, 24, text_color);
+}
+
+</code>
+

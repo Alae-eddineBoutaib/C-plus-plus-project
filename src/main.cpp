@@ -11,11 +11,11 @@ int main() {
     InitWindow(screen_width, screen_height, "platformer");
     InitAudioDevice();
     SetTargetFPS(60);
-    SetExitKey(0);
+    SetExitKey(KEY_NULL);
 
     Game game(screen_width, screen_height);
 
-    while (!WindowShouldClose() && !game.should_exit) {
+    while (!game.should_exit) {
         game.update();
         game.draw();
     }
