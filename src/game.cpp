@@ -342,7 +342,11 @@ Game::~Game(){
 }
 
 void Game::play_random_gameplay_music() {
+<<<<<<< HEAD
     Music* gameplay_tracks[] = {    
+=======
+    Music* gameplay_tracks[] = {
+>>>>>>> 79e39ba30ab23511f2193c49fc0f6d0b12712535
         &vault.gameplay_music_1,
         &vault.gameplay_music_2,
         &vault.gameplay_music_3,
@@ -389,7 +393,11 @@ void Game::prepare_level_transition()
     pending_transition_story_title.clear();
 
     if (completed_level >= 8) {
+<<<<<<< HEAD
         pending_transition_subtitle = "You cleared the final level\n and conquered the last\n chapter.\n";
+=======
+        pending_transition_subtitle = "You cleared the final level and conquered the last chapter.";
+>>>>>>> 79e39ba30ab23511f2193c49fc0f6d0b12712535
         current_screen = GAME_COMPLETE;
         return;
     }
@@ -398,12 +406,20 @@ void Game::prepare_level_transition()
 
     if (chapter_complete) {
         int next_chapter = next_level / 3;
+<<<<<<< HEAD
         pending_transition_subtitle = "The next chapter is waiting\n beyond this victory.";
+=======
+        pending_transition_subtitle = "The next chapter is waiting beyond this victory.";
+>>>>>>> 79e39ba30ab23511f2193c49fc0f6d0b12712535
         pending_transition_story_title = GAME_CHAPTERS[next_chapter].title;
         pending_transition_story = GAME_CHAPTERS[next_chapter].story;
         current_screen = CHAPTER_CLEAR;
     } else {
+<<<<<<< HEAD
         pending_transition_subtitle = "Level " + std::to_string(next_level + 1) + " is ready when you are.";
+=======
+        pending_transition_subtitle = "Level " + std::to_string(next_level) + " is ready when you are.";
+>>>>>>> 79e39ba30ab23511f2193c49fc0f6d0b12712535
         current_screen = LEVEL_CLEAR;
     }
 }
@@ -486,7 +502,11 @@ void Game::draw() {
     else if (current_screen == GAME_COMPLETE) {
         game_ui->draw_transition_screen(
             "You Won The Game!",
+<<<<<<< HEAD
             "The full journey is complete.\n Choose your next move.",
+=======
+            "The full journey is complete. Choose your next move.",
+>>>>>>> 79e39ba30ab23511f2193c49fc0f6d0b12712535
             "",
             "",
             "Main Menu",

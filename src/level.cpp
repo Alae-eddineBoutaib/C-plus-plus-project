@@ -236,11 +236,15 @@ void level::draw_background() const {
             break;
     }
 
+<<<<<<< HEAD
     // Draw a massive solid sky box way above the skyline to patch the top
     DrawRectangle(-2000, (int)groundy - 2500, (int)scene_width + 4000, 2500 - 360, sky_top);
     
     // Draw the gradient spanning infinitely left and right
     DrawRectangleGradientV(-2000.0f, skyline_y, scene_width + 4000.0f, groundy - skyline_y + 140.0f, sky_top, sky_bottom);
+=======
+    DrawRectangleGradientV(-128.0f, skyline_y, scene_width + 256.0f, groundy - skyline_y + 140.0f, sky_top, sky_bottom);
+>>>>>>> 79e39ba30ab23511f2193c49fc0f6d0b12712535
 
     for (int i = 0; i < 16; i++) {
         float x = 120.0f + i * 150.0f;
@@ -289,8 +293,12 @@ void level::draw_background() const {
         DrawLineEx({scene_width * 0.5f - 26.0f, near_base_y - 54.0f}, {scene_width * 0.5f + 26.0f, near_base_y - 54.0f}, 6.0f, Fade(make_color(150, 151, 166), 0.9f));
     }
 
+<<<<<<< HEAD
 // Change this line at the very end of the function:
     DrawRectangleV({-2000.0f, groundy}, {scene_width + 4000.0f, 1500.0f}, make_color(16, 18, 22));
+=======
+    DrawRectangleV({-64.0f, groundy}, {scene_width + 128.0f, 220.0f}, make_color(16, 18, 22));
+>>>>>>> 79e39ba30ab23511f2193c49fc0f6d0b12712535
 }
 
 //update logic

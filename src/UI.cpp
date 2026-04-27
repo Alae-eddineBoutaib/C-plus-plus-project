@@ -253,6 +253,59 @@ void UI::draw_transition_screen(const std::string& title,
     draw_centered_text("UP/DOWN: Move   ENTER: Confirm", screen_height - 52, 20, Fade(RAYWHITE, 0.76f));
 }
 
+void UI::draw_transition_screen(const std::string& title,
+                                const std::string& subtitle,
+                                const std::string& story_title,
+                                const std::string& story,
+                                const char* continue_label,
+                                int selected_option) const
+{
+    Color accent = story.empty() ? Color{87, 185, 242, 255} : GOLD;
+
+    DrawRectangleGradientV(0, 0, screen_width, screen_height, Color{21, 26, 48, 255}, Color{8, 11, 22, 255});
+    DrawCircle(150, 120, 90.0f, Fade(accent, 0.10f));
+    DrawCircle(screen_width - 160, screen_height - 120, 150.0f, Fade(SKYBLUE, 0.08f));
+
+    Rectangle hero_panel = {80.0f, 150.0f, 500.0f, 380.0f};
+    DrawRectangleRounded(hero_panel, 0.18f, 8, Fade(BLACK, 0.28f));
+    DrawRectangleLinesEx(hero_panel, 2.0f, Fade(accent, 0.75f));
+
+    draw_text_shadow(title, 110, 195, 48, RAYWHITE);
+    
+    // Wrap subtitle if it's too long
+    auto subtitle_lines = wrap_text(subtitle, 28, 470);
+    int subtitle_y = 265;
+    for (const auto& line : subtitle_lines) {
+        draw_text_shadow(line, 110, subtitle_y, 28, Fade(RAYWHITE, 0.88f));
+        subtitle_y += 30;
+    }
+    
+    draw_text_shadow("Choose what to do next.", 110, subtitle_y + 15, 24, Fade(RAYWHITE, 0.74f));
+
+    draw_option_button({110.0f, 390.0f, 180.0f, 58.0f}, continue_label, selected_option == 0, accent);
+    draw_option_button({310.0f, 390.0f, 180.0f, 58.0f}, "Try Again", selected_option == 1, accent);
+    draw_option_button({210.0f, 465.0f, 180.0f, 58.0f}, "Quit", selected_option == 2, accent);
+
+    if (!story.empty())
+    {
+        Rectangle story_panel = {640.0f, 150.0f, 520.0f, 430.0f};
+        draw_story_block(story_panel, story_title, story);
+    }
+    else
+    {
+        Rectangle info_panel = {640.0f, 150.0f, 520.0f, 430.0f};
+        DrawRectangleRounded(info_panel, 0.18f, 8, Fade(BLACK, 0.28f));
+        DrawRectangleLinesEx(info_panel, 2.0f, Fade(RAYWHITE, 0.22f));
+        draw_text_shadow("Victory", 670, 190, 34, accent);
+        draw_text_shadow("You cleared the path ahead.", 670, 250, 28, RAYWHITE);
+        draw_text_shadow("Take the next level,", 670, 320, 28, Fade(RAYWHITE, 0.86f));
+        draw_text_shadow("retry this one,", 670, 360, 28, Fade(RAYWHITE, 0.86f));
+        draw_text_shadow("or head back out.", 670, 400, 28, Fade(RAYWHITE, 0.86f));
+    }
+
+    draw_centered_text("UP/DOWN: Move   ENTER: Confirm", screen_height - 52, 20, Fade(RAYWHITE, 0.76f));
+}
+
 void UI::draw_panel() const
 {
     DrawRectangleRounded({10, 10, 360, 56}, 0.25f, 8, Fade(BLACK, 0.45f));
